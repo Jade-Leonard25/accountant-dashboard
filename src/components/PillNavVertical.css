@@ -1,0 +1,60 @@
+/* Vertical layout for PillNav. Use with className="pill-nav--vertical",
+   collapse="never", hoverEffect="fill" and indicator="pill". */
+
+.pill-nav.pill-nav--vertical {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  gap: 8px;
+}
+
+.pill-nav--vertical .pill-nav__logo {
+  align-self: flex-start;
+}
+
+.pill-nav.pill-nav--vertical .pill-nav__bar {
+  width: 100%;
+  height: auto;
+  border-radius: 24px;
+}
+
+.pill-nav--vertical .pill-nav__track {
+  width: 100%;
+  height: auto;
+}
+
+.pill-nav--vertical .pill-nav__list {
+  flex-direction: column;
+  width: 100%;
+  height: auto;
+}
+
+.pill-nav--vertical .pill-nav__slot {
+  width: 100%;
+}
+
+.pill-nav.pill-nav--vertical .pill-nav__item {
+  flex: 1;
+  width: 100%;
+  height: var(--pn-inner);
+  justify-content: flex-start;
+}
+
+.pill-nav--vertical .pill-nav__face-alt {
+  justify-content: flex-start;
+  padding: 0 var(--pn-x);
+}
+
+/* Dot on the active item, on the right (the built-in dot only moves horizontally) */
+.pill-nav--vertical .pill-nav__item[aria-current]::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: var(--pn-x);
+  width: 5px;
+  height: 5px;
+  margin-top: -2.5px;
+  border-radius: 999px;
+  background: var(--pn-pill-ink);
+}
