@@ -9,7 +9,6 @@ import {
   ContextMenuGroup,
 } from "./components/ui/context-menu";
 
-
 //// One entry per folder. Add more here instead of copy-pasting JSX.
 const folders = [
   {
@@ -39,7 +38,7 @@ const folders = [
 ];
 
 // Settings shared by every folder
-const  folderStyle = {
+const folderStyle = {
   trigger: "hover",
   closeOnSelect: true,
   physics: true,

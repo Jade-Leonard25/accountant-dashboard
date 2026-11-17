@@ -1,12 +1,69 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, safeStorage } from "electron";
 import path from "node:path";
+import fs from "node:fs";
+import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
+import dotenv from "dotenv";
+import { serve } from "@hono/node-server";
+import { startAuthServer } from "./server/auth-server.js";
+
+dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = !!process.env.VITE_DEV_SERVER_URL;
 
+const CONFIG_PATH = path.join(app.getPath("userData"), "secure-config.json");
+
 let mainWindow = null;
 let splashWindow = null;
+
+/**
+ * Retrieves or generates a secure secret using OS-level safeStorage encryption.
+ */
+function getOrCreateSecureSecret(keyName = "betterAuthSecret") {
+  try {
+    let config = {};
+    if (fs.existsSync(CONFIG_PATH)) {
+      const fileData = fs.readFileSync(CONFIG_PATH, "utf-8");
+      config = JSON.parse(fileData);
+    }
+
+    // If the encrypted secret already exists, decrypt and return it
+    if (config[keyName]) {
+      const encryptedBuffer = Buffer.from(config[keyName], "base64");
+
+      if (safeStorage.isEncryptionAvailable()) {
+        return safeStorage.decryptString(encryptedBuffer);
+      } else {
+        console.warn(
+          "safeStorage encryption is not available. Using stored fallback.",
+        );
+        return config[keyName];
+      }
+    }
+
+    // Otherwise, generate a new high-entropy secret
+    const rawSecret = crypto.randomBytes(32).toString("hex");
+
+    if (safeStorage.isEncryptionAvailable()) {
+      const encryptedBuffer = safeStorage.encryptString(rawSecret);
+      config[keyName] = encryptedBuffer.toString("base64");
+    } else {
+      console.warn(
+        "safeStorage encryption is not available. Storing plaintext fallback.",
+      );
+      config[keyName] = rawSecret;
+    }
+
+    fs.mkdirSync(path.dirname(CONFIG_PATH), { recursive: true });
+    fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8");
+
+    return rawSecret;
+  } catch (err) {
+    console.error("Failed to manage secure storage secret:", err);
+    return crypto.randomBytes(32).toString("hex");
+  }
+}
 
 function createSplashWindow() {
   splashWindow = new BrowserWindow({
@@ -99,6 +156,27 @@ function createMainWindow() {
 }
 
 app.whenReady().then(() => {
+  // 1. Safely generate or retrieve the Better Auth secret via OS keychain
+  const authSecret = getOrCreateSecureSecret("betterAuthSecret");
+  process.env.BETTER_AUTH_SECRET = authSecret;
+
+  // 2. Start local Hono Auth Server instance
+  const serverInstance = startAuthServer();
+
+  // 3. Launch the server locally inside Electron using @hono/node-server
+  serve(
+    {
+      fetch: serverInstance.fetch,
+      port: serverInstance.port,
+    },
+    (info) => {
+      console.log(
+        `Local Auth Server started successfully on http://localhost:${info.port}`,
+      );
+    },
+  );
+
+  // 4. Initialize windows
   createSplashWindow();
   createMainWindow();
 
