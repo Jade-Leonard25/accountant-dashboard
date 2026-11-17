@@ -1,21 +1,21 @@
-import { Minus, Square, X } from 'lucide-react'
-import { Button } from './ui/button'
+import { Minus, Square, X } from "lucide-react";
+import { Button } from "./ui/button";
 
-const drag = { WebkitAppRegion: 'drag' }
-const noDrag = { WebkitAppRegion: 'no-drag' }
+const drag = { WebkitAppRegion: "drag" };
+const noDrag = { WebkitAppRegion: "no-drag" };
 
 // Calls window.electronAPI[action](); logs a warning if the preload API is missing
 const callWindow = (action) => {
-  const api = window.electronAPI
-  if (!api || typeof api[action] !== 'function') {
+  const api = window.electronAPI;
+  if (!api || typeof api[action] !== "function") {
     console.warn(
       `[TitleBar] window.electronAPI.${action} is not available. ` +
-        'Check that the preload script is loaded and exposes it.'
-    )
-    return
+        "Check that the preload script is loaded and exposes it.",
+    );
+    return;
   }
-  api[action]()
-}
+  api[action]();
+};
 
 export default function TitleBar() {
   return (
@@ -34,7 +34,7 @@ export default function TitleBar() {
         <Button
           type="button"
           style={noDrag}
-          onClick={() => callWindow('minimize')}
+          onClick={() => callWindow("minimize")}
           className="h-9 w-11 flex items-center justify-center hover:bg-slate-800 hover:text-white transition-colors"
           variant="ghost"
           aria-label="Minimize"
@@ -44,7 +44,7 @@ export default function TitleBar() {
         <Button
           type="button"
           style={noDrag}
-          onClick={() => callWindow('maximize')}
+          onClick={() => callWindow("maximize")}
           className="h-9 w-11 flex items-center justify-center hover:bg-slate-800 hover:text-white transition-colors"
           variant="ghost"
           aria-label="Maximize"
@@ -54,7 +54,7 @@ export default function TitleBar() {
         <Button
           type="button"
           style={noDrag}
-          onClick={() => callWindow('close')}
+          onClick={() => callWindow("close")}
           className="h-9 w-11 flex items-center justify-center hover:bg-red-600 hover:text-white transition-colors"
           variant="ghost"
           aria-label="Close"
@@ -63,5 +63,5 @@ export default function TitleBar() {
         </Button>
       </div>
     </div>
-  )
+  );
 }

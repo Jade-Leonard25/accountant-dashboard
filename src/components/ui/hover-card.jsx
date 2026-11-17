@@ -1,20 +1,16 @@
-"use client"
+"use client";
 
-import { PreviewCard as PreviewCardPrimitive } from "@animate-ui/react/primitives/base-ui/preview-card"
-import { cn } from "cn"
+import { PreviewCard as PreviewCardPrimitive } from "@animate-ui/react/primitives/base-ui/preview-card";
+import { cn } from "cn";
 
-function HoverCard({
-  ...props
-}) {
-  return <PreviewCardPrimitive.Root data-slot="hover-card" {...props} />
+function HoverCard({ ...props }) {
+  return <PreviewCardPrimitive.Root data-slot="hover-card" {...props} />;
 }
 
-function HoverCardTrigger({
-  ...props
-}) {
+function HoverCardTrigger({ ...props }) {
   return (
     <PreviewCardPrimitive.Trigger data-slot="hover-card-trigger" {...props} />
-  )
+  );
 }
 
 function HoverCardContent({
@@ -38,13 +34,13 @@ function HoverCardContent({
           data-slot="hover-card-content"
           className={cn(
             "z-50 w-64 origin-(--transform-origin) rounded-lg bg-popover p-2.5 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10 outline-hidden",
-            className
+            className,
           )}
           {...props}
         />
       </PreviewCardPrimitive.Positioner>
     </PreviewCardPrimitive.Portal>
-  )
+  );
 }
 
-export { HoverCard, HoverCardTrigger, HoverCardContent }
+export { HoverCard, HoverCardTrigger, HoverCardContent };

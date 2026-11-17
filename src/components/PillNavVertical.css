@@ -48,7 +48,7 @@
 
 /* Dot on the active item, on the right (the built-in dot only moves horizontally) */
 .pill-nav--vertical .pill-nav__item[aria-current]::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 50%;
   right: var(--pn-x);

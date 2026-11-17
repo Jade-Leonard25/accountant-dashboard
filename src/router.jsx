@@ -6,8 +6,7 @@ import Register from "./pages/Register";
 import App from "./App";
 import TitleBar from "@/components/TitleBar";
 import AccountingDashboard from "./pages/AccountingDashboard/main";
-
-function RootLayout() {
+export const RootLayout = () => {
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-gray-200">
       <div className="relative z-[100] shrink-0">
@@ -18,7 +17,7 @@ function RootLayout() {
       </div>
     </div>
   );
-}
+};
 
 const router = createHashRouter([
   { path: "/splash", element: <LoadingScreen /> },
@@ -29,13 +28,13 @@ const router = createHashRouter([
         path: "/",
         Component: AppSideBar,
         children: [
-          { index: true, Component: App},
+          { index: true, Component: App },
           { path: "settings", element: <div>Settings</div> },
         ],
       },
-      { path: "/login", Component: Login},
-      { path: "/register", Component: Register},
-      {path:'/accountant_dashboard',Component:AccountingDashboard}
+      { path: "/login", Component: Login },
+      { path: "/register", Component: Register },
+      { path: "/accountant_dashboard", Component: AccountingDashboard },
     ],
   },
 ]);

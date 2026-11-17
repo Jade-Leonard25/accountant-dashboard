@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useEffect, useRef } from 'react';
-import { Renderer, Program, Mesh, Triangle, Texture } from 'ogl';
+import { useEffect, useRef } from "react";
+import { Renderer, Program, Mesh, Triangle, Texture } from "ogl";
 
-import './ElectricLogo.css';
+import "./ElectricLogo.css";
 
 const BOLT = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><path d="M39 3 12 37h17l-4 24 27-34H35z" fill="#fff"/></svg>'
+  '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><path d="M39 3 12 37h17l-4 24 27-34H35z" fill="#fff"/></svg>',
 )}`;
 const RASTER = 560;
 const CELL = 4;
@@ -15,11 +15,13 @@ const ARCS = 5;
 const PULSES = 3;
 const PIXEL_BUDGET = 4e6;
 
-const hexToRgb = hex => {
-  let h = String(hex || '').replace('#', '');
-  if (h.length === 3) h = h.replace(/./g, c => c + c);
+const hexToRgb = (hex) => {
+  let h = String(hex || "").replace("#", "");
+  if (h.length === 3) h = h.replace(/./g, (c) => c + c);
   const n = parseInt(h.slice(0, 6), 16);
-  return Number.isNaN(n) ? [1, 1, 1] : [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+  return Number.isNaN(n)
+    ? [1, 1, 1]
+    : [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 };
 
 const transformLine = (f, d, v, z, n) => {
@@ -94,7 +96,7 @@ const readCoverage = (data, w, h) => {
   let g = 0;
   let b = 0;
   let n = 0;
-  const sample = i => {
+  const sample = (i) => {
     r += data[i * 4];
     g += data[i * 4 + 1];
     b += data[i * 4 + 2];
@@ -112,7 +114,11 @@ const readCoverage = (data, w, h) => {
   g /= n;
   b /= n;
   for (let i = 0; i < w * h; i++) {
-    const diff = Math.max(Math.abs(data[i * 4] - r), Math.abs(data[i * 4 + 1] - g), Math.abs(data[i * 4 + 2] - b));
+    const diff = Math.max(
+      Math.abs(data[i * 4] - r),
+      Math.abs(data[i * 4 + 1] - g),
+      Math.abs(data[i * 4 + 2] - b),
+    );
     coverage[i] = Math.min(1, Math.max(0, (diff - 24) / 48));
   }
   return coverage;
@@ -128,21 +134,22 @@ const sampleField = (shape, x, y) => {
   const ty = cy - 0.5 - y0;
   const i = y0 * width + x0;
   const top = field[i] + (field[i + 1] - field[i]) * tx;
-  const bottom = field[i + width] + (field[i + width + 1] - field[i + width]) * tx;
+  const bottom =
+    field[i + width] + (field[i + width + 1] - field[i + width]) * tx;
   return top + (bottom - top) * ty + Math.hypot(x - cx, y - cy);
 };
 
-const traceShape = image => {
+const traceShape = (image) => {
   const iw = image.naturalWidth || image.width;
   const ih = image.naturalHeight || image.height;
   if (!iw || !ih) return null;
   const fit = RASTER / Math.max(iw, ih);
   const w = Math.max(2, Math.round(iw * fit));
   const h = Math.max(2, Math.round(ih * fit));
-  const canvas = document.createElement('canvas');
+  const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) return null;
   ctx.drawImage(image, 0, 0, w, h);
   const coverage = readCoverage(ctx.getImageData(0, 0, w, h).data, w, h);
@@ -173,7 +180,8 @@ const traceShape = image => {
     for (let x = 0; x < width; x++) {
       const sx = x - pad + left;
       const sy = y - pad + top;
-      const a = sx >= 0 && sy >= 0 && sx < w && sy < h ? coverage[sy * w + sx] : 0;
+      const a =
+        sx >= 0 && sy >= 0 && sx < w && sy < h ? coverage[sy * w + sx] : 0;
       const i = y * width + x;
       if (a >= 1) {
         outer[i] = 0;
@@ -192,7 +200,8 @@ const traceShape = image => {
   transformGrid(inner, width, height);
 
   const field = new Float32Array(width * height);
-  for (let i = 0; i < width * height; i++) field[i] = Math.sqrt(outer[i]) - Math.sqrt(inner[i]);
+  for (let i = 0; i < width * height; i++)
+    field[i] = Math.sqrt(outer[i]) - Math.sqrt(inner[i]);
 
   const points = [];
   for (let y = 1; y < height - 1; y++) {
@@ -200,7 +209,13 @@ const traceShape = image => {
       const i = y * width + x;
       const d = field[i];
       if (d > 0) continue;
-      if (field[i - 1] <= 0 && field[i + 1] <= 0 && field[i - width] <= 0 && field[i + width] <= 0) continue;
+      if (
+        field[i - 1] <= 0 &&
+        field[i + 1] <= 0 &&
+        field[i - width] <= 0 &&
+        field[i + width] <= 0
+      )
+        continue;
       const gx = field[i + 1] - field[i - 1];
       const gy = field[i + width] - field[i - width];
       const len = Math.hypot(gx, gy) || 1;
@@ -209,7 +224,8 @@ const traceShape = image => {
   }
   const stride = Math.max(1, Math.ceil(points.length / 2 / 3000)) * 2;
   const edges = [];
-  for (let i = 0; i < points.length; i += stride) edges.push(points[i], points[i + 1]);
+  for (let i = 0; i < points.length; i += stride)
+    edges.push(points[i], points[i + 1]);
 
   const size = Math.max(logoWidth, logoHeight);
   const glowPad = Math.ceil((size * 0.7) / CELL);
@@ -220,7 +236,8 @@ const traceShape = image => {
     const gy = Math.floor((y - pad) / CELL) + glowPad;
     for (let x = 0; x < width; x++) {
       const gx = Math.floor((x - pad) / CELL) + glowPad;
-      tight[gy * glowWidth + gx] += Math.exp(-Math.abs(field[y * width + x]) / 1.5) / (CELL * CELL);
+      tight[gy * glowWidth + gx] +=
+        Math.exp(-Math.abs(field[y * width + x]) / 1.5) / (CELL * CELL);
     }
   }
   const wide = tight.slice();
@@ -228,8 +245,13 @@ const traceShape = image => {
   const wideRadius = Math.max(2, Math.round((size * 0.13) / CELL));
   blurGrid(tight, glowWidth, glowHeight, tightRadius);
   blurGrid(wide, glowWidth, glowHeight, wideRadius);
-  const tightNorm = (Math.sqrt(2 * Math.PI * (tightRadius * tightRadius + tightRadius)) * CELL) / 3;
-  const wideNorm = (Math.sqrt(2 * Math.PI * (wideRadius * wideRadius + wideRadius)) * CELL) / 3;
+  const tightNorm =
+    (Math.sqrt(2 * Math.PI * (tightRadius * tightRadius + tightRadius)) *
+      CELL) /
+    3;
+  const wideNorm =
+    (Math.sqrt(2 * Math.PI * (wideRadius * wideRadius + wideRadius)) * CELL) /
+    3;
   const glow = new Float32Array(glowWidth * glowHeight * 2);
   for (let i = 0; i < glowWidth * glowHeight; i++) {
     glow[i * 2] = tight[i] * tightNorm;
@@ -247,7 +269,7 @@ const traceShape = image => {
     glow,
     glowWidth,
     glowHeight,
-    glowOffset: pad - glowPad * CELL
+    glowOffset: pad - glowPad * CELL,
   };
 };
 
@@ -261,7 +283,10 @@ const spawnArc = (shape, time, focus) => {
     let found = false;
     for (let attempt = 0; attempt < 40 && !found; attempt++) {
       const j = Math.floor(Math.random() * count);
-      if (Math.hypot(edges[j * 2] - focus.x, edges[j * 2 + 1] - focus.y) < focus.radius) {
+      if (
+        Math.hypot(edges[j * 2] - focus.x, edges[j * 2 + 1] - focus.y) <
+        focus.radius
+      ) {
         i = j;
         found = true;
       }
@@ -292,7 +317,7 @@ const spawnArc = (shape, time, focus) => {
       bow: left >= right ? bow : -bow,
       seed: 1 + Math.random() * 60,
       born: time,
-      life: 0.35 + Math.random() * 0.45
+      life: 0.35 + Math.random() * 0.45,
     };
   }
   return null;
@@ -579,8 +604,8 @@ void main() {
 
 const ElectricLogo = ({
   src = BOLT,
-  color = '#ecc7ff',
-  glowColor = '#ad6dff',
+  color = "#ecc7ff",
+  glowColor = "#ad6dff",
   scale = 0.7,
   intensity = 1,
   glow = 1,
@@ -595,10 +620,10 @@ const ElectricLogo = ({
   interactive = true,
   cursorIntensity = 0.75,
   cursorRadius = 100,
-  theme = 'dark',
+  theme = "dark",
   onRender,
-  className = '',
-  style
+  className = "",
+  style,
 }) => {
   const containerRef = useRef(null);
   const settingsRef = useRef(null);
@@ -623,15 +648,15 @@ const ElectricLogo = ({
       cursorIntensity,
       cursorRadius,
       theme,
-      onRender
+      onRender,
     };
   });
 
   useEffect(() => {
     let alive = true;
     const image = new Image();
-    image.crossOrigin = 'anonymous';
-    image.decoding = 'async';
+    image.crossOrigin = "anonymous";
+    image.decoding = "async";
     image.onload = () => {
       if (!alive) return;
       let traced = null;
@@ -657,18 +682,18 @@ const ElectricLogo = ({
       dpr: Math.min(window.devicePixelRatio || 1, 2),
       alpha: true,
       premultipliedAlpha: true,
-      antialias: false
+      antialias: false,
     });
     const gl = renderer.gl;
     if (!renderer.isWebgl2) {
-      gl.getExtension('WEBGL_lose_context')?.loseContext();
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
       return undefined;
     }
     gl.clearColor(0, 0, 0, 0);
     const canvas = gl.canvas;
-    canvas.style.display = 'block';
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
+    canvas.style.display = "block";
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
     container.appendChild(canvas);
 
     const makeSlot = () => ({
@@ -684,7 +709,7 @@ const ElectricLogo = ({
         magFilter: gl.LINEAR,
         generateMipmaps: false,
         flipY: false,
-        unpackAlignment: 1
+        unpackAlignment: 1,
       }),
       glow: new Texture(gl, {
         image: new Float32Array([0, 0]),
@@ -697,8 +722,8 @@ const ElectricLogo = ({
         magFilter: gl.LINEAR,
         generateMipmaps: false,
         flipY: false,
-        unpackAlignment: 1
-      })
+        unpackAlignment: 1,
+      }),
     });
     const slots = [makeSlot(), makeSlot()];
 
@@ -736,14 +761,21 @@ const ElectricLogo = ({
       uFill: { value: 0.5 },
       uInk: { value: 0 },
       uArcEnds: { value: arcEnds },
-      uArcShape: { value: arcShape }
+      uArcShape: { value: arcShape },
     };
     const mesh = new Mesh(gl, {
       geometry: new Triangle(gl),
-      program: new Program(gl, { vertex, fragment, uniforms, depthTest: false, depthWrite: false })
+      program: new Program(gl, {
+        vertex,
+        fragment,
+        uniforms,
+        depthTest: false,
+        depthWrite: false,
+      }),
     });
 
-    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    const reducedMotion =
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
     const pointer = { x: 0, y: 0, over: false };
     const hover = { x: 0, y: 0, vx: 0, vy: 0, power: 0 };
     const sparks = [];
@@ -756,7 +788,7 @@ const ElectricLogo = ({
     let ink = 0;
     const hues = [
       [1, 1, 1],
-      [1, 1, 1]
+      [1, 1, 1],
     ];
     let settled = false;
     let time = 0;
@@ -779,12 +811,18 @@ const ElectricLogo = ({
     };
 
     const place = (shape, s) => {
-      const fit = Math.max(1e-4, Math.min((width * s.scale) / shape.logoWidth, (height * s.scale) / shape.logoHeight));
+      const fit = Math.max(
+        1e-4,
+        Math.min(
+          (width * s.scale) / shape.logoWidth,
+          (height * s.scale) / shape.logoHeight,
+        ),
+      );
       return {
         fit,
         ox: width / 2 - (shape.pad + shape.logoWidth / 2) * fit,
         oy: height / 2 - (shape.pad + shape.logoHeight / 2) * fit,
-        unit: (Math.max(shape.logoWidth, shape.logoHeight) * fit) / 100
+        unit: (Math.max(shape.logoWidth, shape.logoHeight) * fit) / 100,
       };
     };
 
@@ -792,7 +830,11 @@ const ElectricLogo = ({
     const applyResize = () => {
       width = Math.max(1, container.clientWidth);
       height = Math.max(1, container.clientHeight);
-      renderer.dpr = Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(PIXEL_BUDGET / (width * height)));
+      renderer.dpr = Math.min(
+        window.devicePixelRatio || 1,
+        2,
+        Math.sqrt(PIXEL_BUDGET / (width * height)),
+      );
       renderer.setSize(width, height);
       uniforms.uResolution.value = [width, height];
     };
@@ -802,7 +844,7 @@ const ElectricLogo = ({
       start();
     };
 
-    const frame = now => {
+    const frame = (now) => {
       raf = 0;
       if (resizePending) {
         resizePending = false;
@@ -847,7 +889,9 @@ const ElectricLogo = ({
         hover.vy += ((pointer.y - hover.y) * 120 - hover.vy * 19) * dt;
         hover.x += hover.vx * dt;
         hover.y += hover.vy * dt;
-        hover.power += ((engaged ? 1 : 0) - hover.power) * (1 - Math.exp(-dt / (engaged ? 0.3 : 0.55)));
+        hover.power +=
+          ((engaged ? 1 : 0) - hover.power) *
+          (1 - Math.exp(-dt / (engaged ? 0.3 : 0.55)));
 
         const motion = reducedMotion ? 0.2 : 1;
         time += dt * s.speed * motion;
@@ -855,10 +899,10 @@ const ElectricLogo = ({
         for (let i = sparks.length - 1; i >= 0; i--) {
           if (time - sparks[i].born > sparks[i].life) sparks.splice(i, 1);
         }
-        const focus = spot => ({
+        const focus = (spot) => ({
           x: (spot.x - near.ox) / near.fit,
           y: (spot.y - near.oy) / near.fit,
-          radius: Math.max(1, s.cursorRadius) / near.fit
+          radius: Math.max(1, s.cursorRadius) / near.fit,
         });
         if (burst && morph >= 1 && s.arcs > 0) {
           for (let i = 0; i < 3 && sparks.length < ARCS; i++) {
@@ -867,7 +911,12 @@ const ElectricLogo = ({
           }
         }
         burst = null;
-        if (!reducedMotion && presence > 0.8 && morph >= 1 && sparks.length < ARCS) {
+        if (
+          !reducedMotion &&
+          presence > 0.8 &&
+          morph >= 1 &&
+          sparks.length < ARCS
+        ) {
           const chance = dt * s.speed * s.arcs;
           if (Math.random() < chance * 6 * hover.power * s.cursorIntensity) {
             const spark = spawnArc(to, time, focus(hover));
@@ -891,7 +940,8 @@ const ElectricLogo = ({
           arcEnds[o + 2] = near.ox + spark.bx * near.fit;
           arcEnds[o + 3] = near.oy + spark.by * near.fit;
           arcShape[o] = spark.bow * near.fit;
-          arcShape[o + 1] = Math.sin(Math.PI * Math.min(1, Math.max(0, k))) * presence;
+          arcShape[o + 1] =
+            Math.sin(Math.PI * Math.min(1, Math.max(0, k))) * presence;
           arcShape[o + 2] = spark.seed;
         }
 
@@ -922,16 +972,30 @@ const ElectricLogo = ({
         uniforms.tFieldFrom.value = fromSlot.field;
         uniforms.tGlowFrom.value = fromSlot.glow;
         uniforms.uMapTo.value = [near.ox, near.oy, near.fit, to.glowOffset];
-        uniforms.uSizeTo.value = [to.width, to.height, to.glowWidth, to.glowHeight];
+        uniforms.uSizeTo.value = [
+          to.width,
+          to.height,
+          to.glowWidth,
+          to.glowHeight,
+        ];
         if (from) {
           uniforms.uMapFrom.value = [far.ox, far.oy, far.fit, from.glowOffset];
-          uniforms.uSizeFrom.value = [from.width, from.height, from.glowWidth, from.glowHeight];
+          uniforms.uSizeFrom.value = [
+            from.width,
+            from.height,
+            from.glowWidth,
+            from.glowHeight,
+          ];
         }
         uniforms.uMorph.value = morph;
         uniforms.uUnit.value = unit;
         uniforms.uTime.value = time;
         uniforms.uPresence.value = presence;
-        uniforms.uHover.value = [hover.x, hover.y, hover.power * Math.max(0, s.cursorIntensity)];
+        uniforms.uHover.value = [
+          hover.x,
+          hover.y,
+          hover.power * Math.max(0, s.cursorIntensity),
+        ];
         uniforms.uHoverRadius.value = Math.max(1, s.cursorRadius);
         uniforms.uPulseBoost.value = boost;
         uniforms.uFlash.value = flash;
@@ -939,18 +1003,23 @@ const ElectricLogo = ({
         const shift = settled ? 1 - Math.exp(-dt / 0.35) : 1;
         settled = true;
         for (let i = 0; i < 2; i++) {
-          for (let c = 0; c < 3; c++) hues[i][c] += (targets[i][c] - hues[i][c]) * shift;
+          for (let c = 0; c < 3; c++)
+            hues[i][c] += (targets[i][c] - hues[i][c]) * shift;
         }
         uniforms.uColor.value = hues[0].slice();
         uniforms.uGlowColor.value = hues[1].slice();
         uniforms.uIntensity.value = s.intensity;
         uniforms.uGlow.value = s.glow;
         uniforms.uThickness.value = s.thickness;
-        uniforms.uStrands.value = Math.max(1, Math.min(6, Math.round(s.strands)));
+        uniforms.uStrands.value = Math.max(
+          1,
+          Math.min(6, Math.round(s.strands)),
+        );
         uniforms.uBend.value = s.bend;
         uniforms.uCrackle.value = s.crackle;
         uniforms.uFlicker.value = reducedMotion ? 0 : s.flicker;
-        ink += ((s.theme === 'light' ? 1 : 0) - ink) * (1 - Math.exp(-dt / 0.25));
+        ink +=
+          ((s.theme === "light" ? 1 : 0) - ink) * (1 - Math.exp(-dt / 0.25));
         uniforms.uFill.value = s.fill;
         uniforms.uInk.value = ink;
         renderer.render({ scene: mesh });
@@ -966,13 +1035,13 @@ const ElectricLogo = ({
       raf = requestAnimationFrame(frame);
     };
 
-    const onMove = e => {
+    const onMove = (e) => {
       const rect = container.getBoundingClientRect();
       pointer.x = e.clientX - rect.left;
       pointer.y = e.clientY - rect.top;
       pointer.over = true;
     };
-    const onDown = e => {
+    const onDown = (e) => {
       onMove(e);
       if (!settingsRef.current?.interactive || reducedMotion) return;
       pulses.push({ x: pointer.x, y: pointer.y, born: performance.now() });
@@ -982,10 +1051,10 @@ const ElectricLogo = ({
     const onLeave = () => {
       pointer.over = false;
     };
-    container.addEventListener('pointermove', onMove);
-    container.addEventListener('pointerdown', onDown);
-    container.addEventListener('pointerleave', onLeave);
-    container.addEventListener('pointercancel', onLeave);
+    container.addEventListener("pointermove", onMove);
+    container.addEventListener("pointerdown", onDown);
+    container.addEventListener("pointerleave", onLeave);
+    container.addEventListener("pointercancel", onLeave);
 
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(container);
@@ -1003,16 +1072,22 @@ const ElectricLogo = ({
       cancelAnimationFrame(raf);
       resizeObserver.disconnect();
       intersectionObserver.disconnect();
-      container.removeEventListener('pointermove', onMove);
-      container.removeEventListener('pointerdown', onDown);
-      container.removeEventListener('pointerleave', onLeave);
-      container.removeEventListener('pointercancel', onLeave);
-      gl.getExtension('WEBGL_lose_context')?.loseContext();
+      container.removeEventListener("pointermove", onMove);
+      container.removeEventListener("pointerdown", onDown);
+      container.removeEventListener("pointerleave", onLeave);
+      container.removeEventListener("pointercancel", onLeave);
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
       if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
     };
   }, []);
 
-  return <div ref={containerRef} className={`electric-logo ${className}`.trim()} style={style} />;
+  return (
+    <div
+      ref={containerRef}
+      className={`electric-logo ${className}`.trim()}
+      style={style}
+    />
+  );
 };
 
 export default ElectricLogo;

@@ -47,7 +47,7 @@
 }
 
 .folder-float__back::before {
-  content: '';
+  content: "";
   position: absolute;
   top: calc(-1 * var(--ff-tab));
   left: 0;
@@ -87,7 +87,11 @@
   padding: 14px 16px;
   box-sizing: border-box;
   border-radius: var(--ff-r);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--ff-front) 92%, #fff), var(--ff-front) 60%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--ff-front) 92%, #fff),
+    var(--ff-front) 60%
+  );
   color: var(--ff-label);
   box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.28);
   transform: perspective(600px) rotateX(calc(-1 * var(--ff-rest)));
@@ -144,7 +148,7 @@
 }
 
 .folder-float[data-open] .folder-float__items::before {
-  content: '';
+  content: "";
   position: absolute;
   top: calc(-1 * (var(--ff-lift) + 120px));
   left: calc(-1 * (var(--ff-spread) + 100px));
@@ -174,14 +178,20 @@
   pointer-events: none;
   -webkit-tap-highlight-color: transparent;
   transition:
-    transform var(--ff-close) var(--ff-ease-out) calc((var(--ff-n) - 1 - var(--i)) * var(--ff-stagger) * 0.5),
-    opacity 160ms ease calc((var(--ff-n) - 1 - var(--i)) * var(--ff-stagger) * 0.5 + var(--ff-close) * 0.45),
+    transform var(--ff-close) var(--ff-ease-out)
+      calc((var(--ff-n) - 1 - var(--i)) * var(--ff-stagger) * 0.5),
+    opacity 160ms ease
+      calc(
+        (var(--ff-n) - 1 - var(--i)) * var(--ff-stagger) * 0.5 +
+          var(--ff-close) * 0.45
+      ),
     scale 160ms var(--ff-ease-out);
 }
 
 .folder-float[data-open] .folder-float__item {
   opacity: 1;
-  transform: translate(calc(-50% + var(--x)), var(--y)) rotate(var(--r)) scale(1);
+  transform: translate(calc(-50% + var(--x)), var(--y)) rotate(var(--r))
+    scale(1);
   pointer-events: auto;
   transition:
     transform var(--ff-open) var(--ff-spring) calc(var(--i) * var(--ff-stagger)),

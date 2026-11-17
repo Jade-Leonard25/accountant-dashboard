@@ -1,13 +1,16 @@
-"use client"
+"use client";
 
-import * as React from "react"
+import * as React from "react";
 import { cva } from "class-variance-authority";
-import { cn } from "cn"
+import { cn } from "cn";
 
-import { Button } from "@/components/ui/button"
-import { CheckIcon, CopyIcon } from "lucide-react"
-import * as CodeBlockPrimitive from "@animate-ui/react/primitives/code-block"
-import { CopyButton, CopyButtonIcon } from "@animate-ui/react/primitives/buttons/copy"
+import { Button } from "@/components/ui/button";
+import { CheckIcon, CopyIcon } from "lucide-react";
+import * as CodeBlockPrimitive from "@animate-ui/react/primitives/code-block";
+import {
+  CopyButton,
+  CopyButtonIcon,
+} from "@animate-ui/react/primitives/buttons/copy";
 
 const codeBlockVariants = cva(
   "group/code-block relative flex w-full min-w-0 flex-col overflow-hidden rounded-lg text-sm has-[>[data-slot=code-block-content]:focus-visible]:ring-3 has-[>[data-slot=code-block-content]:focus-visible]:ring-ring/50 data-[size=sm]:text-xs",
@@ -23,8 +26,8 @@ const codeBlockVariants = cva(
     defaultVariants: {
       variant: "default",
     },
-  }
-)
+  },
+);
 
 function CodeBlock({
   className,
@@ -40,55 +43,46 @@ function CodeBlock({
       className={cn(codeBlockVariants({ variant }), className)}
       {...props}
     />
-  )
+  );
 }
 
-function CodeBlockHeader({
-  className,
-  ...props
-}) {
+function CodeBlockHeader({ className, ...props }) {
   return (
     <div
       data-slot="code-block-header"
       className={cn(
         "flex min-w-0 shrink-0 items-center gap-2 px-3 pt-3 text-muted-foreground group-data-[size=sm]/code-block:px-2.5 group-data-[size=sm]/code-block:pt-2.5 group-data-[variant=destructive]/code-block:text-destructive *:has-[>[data-slot=code-block-title]]:min-w-0",
-        className
+        className,
       )}
       {...props}
     />
-  )
+  );
 }
 
-function CodeBlockTitle({
-  className,
-  ...props
-}) {
+function CodeBlockTitle({ className, ...props }) {
   return (
     <div
       data-slot="code-block-title"
       className={cn(
         "min-w-0 truncate font-sans text-sm font-medium text-foreground group-data-[size=sm]/code-block:text-xs group-data-[variant=destructive]/code-block:text-destructive [&_svg]:pointer-events-none [&_svg]:inline-block [&_svg]:align-middle [&_svg:not([class*='size-'])]:size-3.5 *:[svg]:me-1.5",
-        className
+        className,
       )}
       {...props}
     />
-  )
+  );
 }
 
-function CodeBlockActions({
-  className,
-  ...props
-}) {
+function CodeBlockActions({ className, ...props }) {
   return (
     <div
       data-slot="code-block-actions"
       className={cn(
         "-my-1 ms-auto -me-1.5 flex shrink-0 items-center gap-1 [[data-slot=code-block]>&]:absolute [[data-slot=code-block]>&]:end-2 [[data-slot=code-block]>&]:top-2 [[data-slot=code-block]>&]:z-10 [[data-slot=code-block]>&]:m-0 [[data-slot=code-block]>&]:opacity-0 [[data-slot=code-block]>&]:transition-opacity [[data-slot=code-block]>&]:group-focus-within/code-block:opacity-100 [[data-slot=code-block]>&]:group-hover/code-block:opacity-100 group-data-[size=sm]/code-block:[[data-slot=code-block]>&]:end-1.5 group-data-[size=sm]/code-block:[[data-slot=code-block]>&]:top-1.5 [[data-slot=code-block]>&]:pointer-coarse:opacity-100 [[data-slot=code-block]>&]:*:[button]:bg-background [[data-slot=code-block]>&]:*:[button]:ring-1 [[data-slot=code-block]>&]:*:[button]:ring-foreground/10",
-        className
+        className,
       )}
       {...props}
     />
-  )
+  );
 }
 
 function CodeBlockCopyButton({
@@ -98,7 +92,7 @@ function CodeBlockCopyButton({
   className,
   ...props
 }) {
-  const [copied, setCopied] = React.useState(false)
+  const [copied, setCopied] = React.useState(false);
 
   return (
     <>
@@ -117,19 +111,14 @@ function CodeBlockCopyButton({
           className={cn(className)}
           {...props}
         >
-          <CopyButtonIcon
-            icon={<CopyIcon
-            />}
-            copiedIcon={<CheckIcon
-            />}
-          />
+          <CopyButtonIcon icon={<CopyIcon />} copiedIcon={<CheckIcon />} />
         </Button>
       </CopyButton>
       <span aria-live="polite" className="sr-only">
         {copied ? "Copied" : ""}
       </span>
     </>
-  )
+  );
 }
 
 function CodeBlockContent({
@@ -151,7 +140,7 @@ function CodeBlockContent({
       style={{ counterReset: `line ${startLine - 1}`, ...style }}
       className={cn(
         "min-h-0 min-w-0 scroll-fade-x scrollbar-thin overflow-auto px-3 py-3 text-start font-mono leading-relaxed outline-none group-has-data-[slot=code-block-footer]/code-block:pb-2 group-has-data-[slot=code-block-header]/code-block:pt-2 group-data-[size=sm]/code-block:px-2.5 group-data-[size=sm]/code-block:py-2.5 group-data-[size=sm]/code-block:group-has-data-[slot=code-block-header]/code-block:pt-1.5 data-wrap:scroll-fade-y data-wrap:wrap-break-word data-wrap:whitespace-pre-wrap",
-        className
+        className,
       )}
       {...props}
     >
@@ -169,7 +158,7 @@ function CodeBlockContent({
           : children}
       </code>
     </CodeBlockPrimitive.Content>
-  )
+  );
 }
 
 const codeBlockLineVariants = cva(
@@ -186,21 +175,16 @@ const codeBlockLineVariants = cva(
     defaultVariants: {
       variant: "default",
     },
-  }
-)
+  },
+);
 
-function CodeBlockLine({
-  className,
-  variant = "default",
-  children,
-  ...props
-}) {
+function CodeBlockLine({ className, variant = "default", children, ...props }) {
   // An empty line holds a newline so copying a selection keeps blank lines.
   const empty =
     children === undefined ||
     children === null ||
     children === "" ||
-    (Array.isArray(children) && children.length === 0)
+    (Array.isArray(children) && children.length === 0);
 
   return (
     <span
@@ -213,23 +197,20 @@ function CodeBlockLine({
         {empty ? "\n" : children}
       </span>
     </span>
-  )
+  );
 }
 
-function CodeBlockFooter({
-  className,
-  ...props
-}) {
+function CodeBlockFooter({ className, ...props }) {
   return (
     <div
       data-slot="code-block-footer"
       className={cn(
         "flex min-w-0 shrink-0 items-center gap-2 px-3 pb-3 text-muted-foreground group-data-[size=sm]/code-block:px-2.5 group-data-[size=sm]/code-block:pb-2.5",
-        className
+        className,
       )}
       {...props}
     />
-  )
+  );
 }
 
 export {
@@ -241,4 +222,4 @@ export {
   CodeBlockContent,
   CodeBlockLine,
   CodeBlockFooter,
-}
+};

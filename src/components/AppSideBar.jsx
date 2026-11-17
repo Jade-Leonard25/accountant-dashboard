@@ -2,7 +2,6 @@ import * as sidebar from "@/components/ui/sidebar";
 import { Link, Outlet, useLocation } from "react-router";
 import PillNav from "@/components/PillNav";
 
-
 const darkTheme = {
   "--sidebar": "#060911",
   "--sidebar-foreground": "#e2e8f0",

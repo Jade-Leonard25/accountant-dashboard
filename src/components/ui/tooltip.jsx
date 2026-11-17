@@ -1,31 +1,24 @@
-"use client"
+"use client";
 
-import { Tooltip as TooltipPrimitive } from "@animate-ui/react/primitives/base-ui/tooltip"
-import { cn } from "cn"
+import { Tooltip as TooltipPrimitive } from "@animate-ui/react/primitives/base-ui/tooltip";
+import { cn } from "cn";
 
-function TooltipProvider({
-  delay = 0,
-  ...props
-}) {
+function TooltipProvider({ delay = 0, ...props }) {
   return (
     <TooltipPrimitive.Provider
       data-slot="tooltip-provider"
       delay={delay}
       {...props}
     />
-  )
+  );
 }
 
-function Tooltip({
-  ...props
-}) {
-  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />
+function Tooltip({ ...props }) {
+  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />;
 }
 
-function TooltipTrigger({
-  ...props
-}) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />
+function TooltipTrigger({ ...props }) {
+  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
 }
 
 function TooltipContent({
@@ -50,7 +43,7 @@ function TooltipContent({
           data-slot="tooltip-content"
           className={cn(
             "z-50 inline-flex w-fit max-w-xs origin-(--transform-origin) items-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-xs text-background has-data-[slot=kbd]:pr-1.5 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-sm",
-            className
+            className,
           )}
           {...props}
         >
@@ -59,7 +52,7 @@ function TooltipContent({
         </TooltipPrimitive.Popup>
       </TooltipPrimitive.Positioner>
     </TooltipPrimitive.Portal>
-  )
+  );
 }
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider };

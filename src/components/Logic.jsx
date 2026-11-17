@@ -1,12 +1,8 @@
-import * as react from 'react';
+import * as react from "react";
 
 // this page is for logic math calculation
 export default function Logic() {
-    const [data,setData] = react.useState({});
-    
-    return(
-        <div className=''>
+  const [data, setData] = react.useState({});
 
-        </div>
-    )
+  return <div className=""></div>;
 }

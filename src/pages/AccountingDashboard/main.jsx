@@ -1,9 +1,55 @@
-import { StrictMode } from "react";
-import * as react from 'react';
-import accountant_dashboard_system_router from "./router";
-import { RouterProvider } from "react-router";
-export default function AccountantDashboardSystemRoot(){
-  <StrictMode>
-     <RouterProvider router={accountant_dashboard_system_router} />
-  </StrictMode>
+import React, { useState } from "react";
+import { Outlet } from "react-router";
+import {
+  SidebarProvider,
+  SidebarTrigger,
+  SidebarInset,
+} from "@/components/ui/sidebar";
+import { AccountantSidebar } from "./sidebar/components";
+
+export default function AccountingDashboard() {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  const currentUserPermissions = [
+    "view_dashboard",
+    "view_ledger",
+    "edit_entries",
+    "manage_invoices",
+    "view_reports",
+    "view_tax",
+    "view_audit_logs",
+    "view_budgets",
+    "view_analytics",
+    "manage_settings",
+  ];
+
+  const handleGlobalAudit = (auditPayload) => {
+    console.log("Audit Event Triggered:", auditPayload);
+  };
+
+  return (
+    <SidebarProvider
+      open={sidebarOpen}
+      onOpenChange={setSidebarOpen}
+      className="h-full min-h-0 bg-gray-900"
+    >
+      <AccountantSidebar
+        userPermissions={currentUserPermissions}
+        onAuditNavigate={handleGlobalAudit}
+      />
+
+      <SidebarInset className="min-h-0 overflow-auto">
+        <header className="relative z-20 flex h-14 shrink-0 items-center gap-2 border-b bg-gray-900 p-4">
+          <SidebarTrigger className="cursor-pointer" />
+          <span className="text-sm font-medium text-muted-foreground">
+            Accountant Portal
+          </span>
+        </header>
+
+        <main className="flex-1 overflow-auto p-6">
+          <Outlet />
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
+  );
 }
