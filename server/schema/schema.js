@@ -48,8 +48,8 @@ export const company = sqliteTable("company", {
 
   // Tax Reductions / Special Rate Settings
   compTaxReduct: real("comp_tax_reduct").default(0.0).notNull(), // Percentage or fixed rate reduction
-  compPermit:text("company_permit"),
-  
+  compPermit: text("company_permit"),
+
   // Timestamps
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
@@ -111,18 +111,18 @@ export const attendanceLogs = sqliteTable("attendance_logs", {
   employeeId: text("employee_id")
     .notNull()
     .references(() => employees.id, { onDelete: "cascade" }),
-  
+
   logDate: text("log_date").notNull(), // ISO string YYYY-MM-DD
-  
+
   // Time stored as minutes from midnight (e.g., 08:00 AM = 480 minutes, 05:00 PM = 1020 minutes)
-  timeInMinutes: integer("time_in_minutes").notNull(), 
+  timeInMinutes: integer("time_in_minutes").notNull(),
   timeOutMinutes: integer("time_out_minutes"),
-  
+
   // Calculated metrics
   totalHoursWorked: real("total_hours_worked").default(0.0).notNull(),
   overtimeHours: real("overtime_hours").default(0.0).notNull(),
   lateMinutes: integer("late_minutes").default(0).notNull(),
-  
+
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 // --- Relations ---
