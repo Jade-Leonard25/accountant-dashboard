@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
 import { eq } from "drizzle-orm";
-import { userAdmin } from "../db/schema";
-import { generateCustomId } from "../utils/id";
+import { userAdmin } from "../schema/schema";
+import { generateCustomId } from "../customID";
 
 type Bindings = { DB: D1Database };
 const adminController = new Hono<{ Bindings: Bindings }>();
