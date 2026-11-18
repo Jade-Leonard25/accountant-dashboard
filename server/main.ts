@@ -13,7 +13,7 @@ const server = new Hono<{ Bindings: Bindings }>();
 server.use(
   "*",
   cors({
-    origin: ["http://localhost:5173", "com.yourapp.payroll://"],
+    origin: ["http://localhost:5173", "com.yourapp.payroll://","*"],
     allowHeaders: ["Content-Type", "Authorization"],
     allowMethods: ["POST", "GET", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
