@@ -128,7 +128,7 @@ export default function Login() {
     try {
       setLoading(true);
       const response = await axios.post(
-        "https://system-payroll-api.developmentserver160.workers.dev/admin",
+        "https://system-payroll-api.developmentserver160.workers.dev/api/auth/sign-in/email",
         data,
       );
       console.log("Login successful:", response.data);

@@ -8,6 +8,9 @@ import { z } from "zod";
 import axios from "axios";
 import RegisterLogo from "../assets/register.jpeg";
 
+// Use your deployed Cloudflare Worker URL or local Wrangler/Hono port (e.g., 8787 or 4002)
+const API_BASE_URL = "https://system-payroll-api.developmentserver160.workers.dev";
+
 const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters long"),
   email: z.string().email("Please enter a valid email address"),
@@ -84,15 +87,16 @@ export default function Register() {
     try {
       setLoading(true);
       const response = await axios.post(
-        "https://system-payroll-api.developmentserver160.workers.dev/admin",
+        `${API_BASE_URL}/api/auth/sign-up/email`,
         data,
+        { withCredentials: true }
       );
       console.log("Register successful:", response.data);
-      navigate("/login");
+      navigate("/dashboard");
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          "Failed to create account. Please try again.",
+          "Failed to create account. Please try again."
       );
     } finally {
       setLoading(false);

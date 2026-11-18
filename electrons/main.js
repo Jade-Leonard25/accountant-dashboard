@@ -1,11 +1,10 @@
-import { app, BrowserWindow, ipcMain, safeStorage,protocol } from "electron";
+import { app, BrowserWindow, ipcMain, protocol, safeStorage, net } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { serve } from "@hono/node-server";
-import { startAuthServer } from "./server/auth-server.js";
 
 dotenv.config();
 
@@ -17,9 +16,6 @@ const CONFIG_PATH = path.join(app.getPath("userData"), "secure-config.json");
 let mainWindow = null;
 let splashWindow = null;
 
-/**
- * Retrieves or generates a secure secret using OS-level safeStorage encryption.
- */
 function getOrCreateSecureSecret(keyName = "betterAuthSecret") {
   try {
     let config = {};
@@ -28,7 +24,6 @@ function getOrCreateSecureSecret(keyName = "betterAuthSecret") {
       config = JSON.parse(fileData);
     }
 
-    // If the encrypted secret already exists, decrypt and return it
     if (config[keyName]) {
       const encryptedBuffer = Buffer.from(config[keyName], "base64");
 
@@ -42,7 +37,6 @@ function getOrCreateSecureSecret(keyName = "betterAuthSecret") {
       }
     }
 
-    // Otherwise, generate a new high-entropy secret
     const rawSecret = crypto.randomBytes(32).toString("hex");
 
     if (safeStorage.isEncryptionAvailable()) {
@@ -64,9 +58,10 @@ function getOrCreateSecureSecret(keyName = "betterAuthSecret") {
     return crypto.randomBytes(32).toString("hex");
   }
 }
+
 protocol.registerSchemesAsPrivileged([
   {
-    scheme:"electron_payroll",
+    scheme: "electronpayroll",
     privileges: {
       standard: true,
       secure: true,
@@ -74,15 +69,16 @@ protocol.registerSchemesAsPrivileged([
       bypassCSP: true,
       corsEnabled: true,
     },
-  }
-])
+  },
+]);
+
 function createSplashWindow() {
   splashWindow = new BrowserWindow({
     width: 1200,
     height: 600,
     frame: false,
     transparent: true,
-    show: false, // don't show the empty window; reveal after the logo has painted
+    show: false,
     center: true,
     backgroundColor: "#00000000",
     hasShadow: false,
@@ -96,14 +92,12 @@ function createSplashWindow() {
     },
   });
 
-  // Strip any app background before first paint so only the logo is visible
   splashWindow.webContents.on("dom-ready", () => {
     splashWindow?.webContents.insertCSS(
       "html, body, #root { background: transparent !important; overflow: hidden !important; }",
     );
   });
 
-  // Show only once the page (and logo) finished loading, with a tiny delay so the image is drawn
   splashWindow.webContents.once("did-finish-load", () => {
     setTimeout(() => {
       if (splashWindow && !splashWindow.isDestroyed()) splashWindow.show();
@@ -125,7 +119,7 @@ function createMainWindow() {
     height: 600,
     frame: false,
     backgroundColor: "#060911",
-    show: false, // Keep hidden while loading in the background
+    show: false,
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
@@ -140,7 +134,6 @@ function createMainWindow() {
     mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
   }
 
-  // Once the main app is fully loaded, safely close the splash window and reveal the main window
   mainWindow.once("ready-to-show", () => {
     setTimeout(() => {
       if (splashWindow && !splashWindow.isDestroyed()) {
@@ -153,7 +146,6 @@ function createMainWindow() {
     }, 1200);
   });
 
-  // Window control IPC handlers
   ipcMain.on("window-minimize", () => mainWindow?.minimize());
   ipcMain.on("window-maximize", () => {
     if (!mainWindow) return;
@@ -167,27 +159,41 @@ function createMainWindow() {
 }
 
 app.whenReady().then(() => {
-  // 1. Safely generate or retrieve the Better Auth secret via OS keychain
   const authSecret = getOrCreateSecureSecret("betterAuthSecret");
   process.env.BETTER_AUTH_SECRET = authSecret;
 
-  // 2. Start local Hono Auth Server instance
-  const serverInstance = startAuthServer();
+  const PORT = process.env.PORT || 4012;
 
-  // 3. Launch the server locally inside Electron using @hono/node-server
-  serve(
-    {
-      fetch: serverInstance.fetch,
-      port: serverInstance.port,
-    },
-    (info) => {
-      console.log(
-        `Local Auth Server started successfully on http://localhost:${info.port}`,
+  protocol.handle("electronpayroll", async (request) => {
+    try {
+      const cleanUrl = request.url.replace(/^electronpayroll:\/\//, "");
+      const targetUrl = cleanUrl.startsWith("http")
+        ? cleanUrl
+        : `http://localhost:${PORT}${cleanUrl.startsWith("/") ? "" : "/"}${cleanUrl}`;
+
+      const fetchOptions = {
+        method: request.method,
+        headers: request.headers,
+      };
+
+      if (request.body && request.method !== "GET" && request.method !== "HEAD") {
+        fetchOptions.body = request.body;
+      }
+
+      const response = await net.fetch(targetUrl, fetchOptions);
+
+      return response;
+    } catch (error) {
+      return new Response(
+        JSON.stringify({ error: error.message || "Proxy connection failed" }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        },
       );
-    },
-  );
+    }
+  });
 
-  // 4. Initialize windows
   createSplashWindow();
   createMainWindow();
 
