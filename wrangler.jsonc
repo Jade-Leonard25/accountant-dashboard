@@ -1,0 +1,8 @@
+name = "system-payroll"
+main = "main.ts"
+compatibility_date = "2026-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "system-payroll"
+database_id = "96829657-7632-42a5-86c0-d037c2cf501c"
