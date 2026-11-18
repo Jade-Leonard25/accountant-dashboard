@@ -8,8 +8,7 @@ import {
   ContextMenuLabel,
   ContextMenuGroup,
 } from "./components/ui/context-menu";
-
-//// One entry per folder. Add more here instead of copy-pasting JSX.
+import * as react from 'react';
 const folders = [
   {
     id: 1,
@@ -64,7 +63,7 @@ const folderStyle = {
 
 const App = () => {
   const navigate = useNavigate();
-
+  const [data,setData] = react.useState({});
   const actions = [
     { name: "Open", run: (folder) => navigate(folder.path) },
     { name: "Delete", run: (folder) => console.log("Delete", folder.id) },

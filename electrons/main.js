@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, safeStorage } from "electron";
+import { app, BrowserWindow, ipcMain, safeStorage,protocol } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 import crypto from "node:crypto";
@@ -64,7 +64,18 @@ function getOrCreateSecureSecret(keyName = "betterAuthSecret") {
     return crypto.randomBytes(32).toString("hex");
   }
 }
-
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme:"electron_payroll",
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      bypassCSP: true,
+      corsEnabled: true,
+    },
+  }
+])
 function createSplashWindow() {
   splashWindow = new BrowserWindow({
     width: 1200,
