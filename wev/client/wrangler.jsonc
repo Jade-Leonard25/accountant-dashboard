@@ -1,10 +1,8 @@
 {
   "name": "accountant-dashboard",
-  "main": "./dist/client/server/server.mjs",
-  "compatibility_date": "2026-11-19",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_date": "2026-11-18",
   "assets": {
-    "binding": "ASSETS",
-    "directory": "./dist/client/browser"
+    "directory": "./dist/client/browser",
+    "not_found_handling": "single-page-application"
   }
 }
