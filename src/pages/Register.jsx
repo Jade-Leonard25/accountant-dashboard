@@ -5,11 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { User, Mail, Key, ArrowRight, Lock, Loader2 } from "lucide-react";
 import { z } from "zod";
-import axios from "axios";
 import RegisterLogo from "../assets/register.jpeg";
-
-// Use your deployed Cloudflare Worker URL or local Wrangler/Hono port (e.g., 8787 or 4002)
-const API_BASE_URL = "https://system-payroll-api.developmentserver160.workers.dev";
+import { signUp } from "@/lib/auth-client";
 
 const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters long"),
@@ -86,25 +83,30 @@ export default function Register() {
 
     try {
       setLoading(true);
-      const response = await axios.post(
-        `${API_BASE_URL}/api/auth/sign-up/email`,
-        data,
-        { withCredentials: true }
+      await signUp.email(
+        {
+          name: data.name,
+          email: data.email,
+          password: data.password,
+        },
+        {
+          onSuccess: () => {
+            navigate("/accountant_dashboard", { replace: true });
+          },
+          onError: (ctx) => {
+            setError(ctx.error.message || "Failed to create account. Please try again.");
+          },
+        }
       );
-      console.log("Register successful:", response.data);
-      navigate("/dashboard");
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Failed to create account. Please try again."
-      );
+      setError("An unexpected error occurred during registration.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="w-full h-full flex bg-[#060911] overflow-hidden select-none text-slate-100">
+    <div className="w-full h-screen flex bg-[#060911] overflow-hidden select-none text-slate-100">
       {/* Left Column: Brand / Illustration Splash */}
       <div className="hidden lg:flex w-1/2 relative flex-col justify-between p-12 bg-linear-to-br from-indigo-950/60 via-slate-900 to-[#060911] border-r border-slate-800/60 overflow-hidden">
         <div className="absolute inset-0 bg-indigo-600/5 blur-[100px] pointer-events-none" />

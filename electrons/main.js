@@ -1,8 +1,15 @@
-import { app, BrowserWindow, ipcMain, protocol, safeStorage, net } from "electron";
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  protocol,
+  safeStorage,
+  net,
+} from "electron";
 import path from "node:path";
 import fs from "node:fs";
 import crypto from "node:crypto";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import dotenv from "dotenv";
 import { serve } from "@hono/node-server";
 
@@ -10,6 +17,7 @@ dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = !!process.env.VITE_DEV_SERVER_URL;
+const AUTH_API_URL = "https://system-payroll-api.developmentserver160.workers.dev";
 
 const CONFIG_PATH = path.join(app.getPath("userData"), "secure-config.json");
 
@@ -128,10 +136,13 @@ function createMainWindow() {
     },
   });
 
-  if (isDev) {
+if (isDev) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
+    
+    // 👉 Automatically open DevTools docked to the right in development mode
+    mainWindow.webContents.openDevTools({ mode: "right" });
   } else {
-    mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
+    mainWindow.loadURL("electronpayroll://app/index.html");
   }
 
   mainWindow.once("ready-to-show", () => {
@@ -162,27 +173,51 @@ app.whenReady().then(() => {
   const authSecret = getOrCreateSecureSecret("betterAuthSecret");
   process.env.BETTER_AUTH_SECRET = authSecret;
 
-  const PORT = process.env.PORT || 4012;
-
   protocol.handle("electronpayroll", async (request) => {
     try {
-      const cleanUrl = request.url.replace(/^electronpayroll:\/\//, "");
-      const targetUrl = cleanUrl.startsWith("http")
-        ? cleanUrl
-        : `http://localhost:${PORT}${cleanUrl.startsWith("/") ? "" : "/"}${cleanUrl}`;
-
-      const fetchOptions = {
-        method: request.method,
-        headers: request.headers,
-      };
-
-      if (request.body && request.method !== "GET" && request.method !== "HEAD") {
-        fetchOptions.body = request.body;
+      const requestUrl = new URL(request.url);
+      if (requestUrl.hostname !== "app") {
+        return new Response("Not found", { status: 404 });
       }
 
-      const response = await net.fetch(targetUrl, fetchOptions);
+      if (requestUrl.pathname === "/api/auth" || requestUrl.pathname.startsWith("/api/auth/")) {
+        const targetUrl = new URL(
+          `${requestUrl.pathname}${requestUrl.search}`,
+          AUTH_API_URL,
+        );
+        const headers = new Headers(request.headers);
+        headers.set("Origin", AUTH_API_URL);
+        headers.delete("Referer");
+        headers.delete("Sec-Fetch-Site");
 
-      return response;
+        const fetchOptions = {
+          method: request.method,
+          headers,
+        };
+
+        if (
+          request.body &&
+          request.method !== "GET" &&
+          request.method !== "HEAD"
+        ) {
+          fetchOptions.body = request.body;
+        }
+
+        return await net.fetch(targetUrl, fetchOptions);
+      }
+
+      const appRoot = path.resolve(__dirname, "../dist");
+      const assetPath = path.resolve(
+        appRoot,
+        requestUrl.pathname === "/"
+          ? "index.html"
+          : `.${decodeURIComponent(requestUrl.pathname)}`,
+      );
+      if (!assetPath.startsWith(`${appRoot}${path.sep}`)) {
+        return new Response("Not found", { status: 404 });
+      }
+
+      return await net.fetch(pathToFileURL(assetPath).href);
     } catch (error) {
       return new Response(
         JSON.stringify({ error: error.message || "Proxy connection failed" }),

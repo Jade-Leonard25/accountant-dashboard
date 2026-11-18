@@ -40,7 +40,7 @@ export const accountant_dashboard_sidebar_selection = [
   {
     id: "dashboard",
     name: "Dashboard",
-    link: "/",
+    link: "/dashboard",
     icon: LayoutDashboard,
     audit_code: "ACC_DASH_01",
     permissions: ["view_dashboard"],

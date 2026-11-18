@@ -14,8 +14,9 @@ import {
 import { z } from "zod";
 import axios from "axios";
 import LogoLogin from "../assets/auth.jpeg";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import ClickSpark from "@/components/ClickSpark";
+import { authClient, signIn } from "@/lib/auth-client";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -114,6 +115,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState("credentials");
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -127,16 +129,33 @@ export default function Login() {
 
     try {
       setLoading(true);
-      const response = await axios.post(
-        "https://system-payroll-api.developmentserver160.workers.dev/api/auth/sign-in/email",
-        data,
+      await signIn.email(
+        {
+          email: data.email,
+          password: data.password,
+        },
+        {
+          onSuccess: async () => {
+            const { data: session, error: sessionError } =
+              await authClient.getSession();
+
+            if (sessionError || !session) {
+              setError(
+                sessionError?.message ||
+                  "Sign-in succeeded, but the session could not be verified.",
+              );
+              return;
+            }
+
+            navigate("/accountant_dashboard", { replace: true });
+          },
+          onError: (ctx) => {
+            setError(ctx.error.message || "Failed to login. Please check your credentials.");
+          },
+        }
       );
-      console.log("Login successful:", response.data);
-    } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Failed to login. Please check your credentials.",
-      );
+    } catch {
+      setError("An unexpected error occurred during login.");
     } finally {
       setLoading(false);
     }
@@ -159,6 +178,7 @@ export default function Login() {
         keyData,
       );
       console.log("Key login successful:", response.data);
+      navigate("/accountant_dashboard", { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || "Invalid license key.");
     } finally {
@@ -177,7 +197,7 @@ export default function Login() {
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#060911] overflow-hidden select-none text-slate-100">
+    <div className="w-full h-screen flex flex-col bg-[#060911] overflow-hidden select-none text-slate-100">
       <div className="flex-1 min-h-0 flex w-full overflow-hidden">
         {/* Left Column: Brand / Illustration Splash */}
         <div className="hidden lg:flex w-1/2 relative flex-col justify-between p-12 bg-linear-to-br from-indigo-950/60 via-slate-900 to-[#060911] border-r border-slate-800/60 overflow-hidden">

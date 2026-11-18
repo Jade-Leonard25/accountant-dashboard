@@ -5,8 +5,6 @@ import {
   accountant_dashboard_sidebar_selection as menu,
 } from "./sidebar/components";
 
-// Optional (Vite): add ./pages/<item id>.jsx with a default export,
-// e.g. ./pages/journal_entries.jsx, and it replaces the placeholder automatically.
 const modules = import.meta.glob("./pages/*.jsx", { eager: true });
 const pageFor = (id) => modules[`./pages/${id}.jsx`]?.default;
 

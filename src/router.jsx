@@ -1,11 +1,28 @@
-import { createHashRouter, Outlet } from "react-router";
+import { createHashRouter, Outlet, Navigate, useLocation } from "react-router";
+import { useSession } from "@/lib/auth-client";
 import AppSideBar from "@/components/AppSideBar";
 import LoadingScreen from "@/components/SplashPage";
 import Login from "@/pages/Login";
 import Register from "./pages/Register";
 import App from "./App";
 import TitleBar from "@/components/TitleBar";
-import AccountingDashboard from "./pages/AccountingDashboard/main";
+import { accountantRoutes } from "./pages/AccountingDashboard/router"; // 👈 Import sub-routes definition
+
+const ProtectedLayout = () => {
+  const { data: session, isPending } = useSession();
+  const location = useLocation();
+
+  if (isPending) {
+    return <LoadingScreen />;
+  }
+
+  if (!session) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return <Outlet />;
+};
+
 export const RootLayout = () => {
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-gray-200">
@@ -21,20 +38,25 @@ export const RootLayout = () => {
 
 const router = createHashRouter([
   { path: "/splash", element: <LoadingScreen /> },
+  { path: "/login", Component: Login },
+  { path: "/register", Component: Register },
   {
     element: <RootLayout />,
     children: [
       {
-        path: "/",
-        Component: AppSideBar,
+        element: <ProtectedLayout />,
         children: [
-          { index: true, Component: App },
-          { path: "settings", element: <div>Settings</div> },
+          {
+            path: "/",
+            Component: AppSideBar,
+            children: [
+              { index: true, Component: App },
+              { path: "settings", element: <div>Settings</div> },
+            ],
+          },
+          accountantRoutes, // 👈 Spread the accountant routes object here so all sub-pages work
         ],
       },
-      { path: "/login", Component: Login },
-      { path: "/register", Component: Register },
-      { path: "/accountant_dashboard", Component: AccountingDashboard },
     ],
   },
 ]);

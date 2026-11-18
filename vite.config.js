@@ -66,6 +66,14 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    proxy: {
+      "/api/auth": {
+        target: "https://system-payroll-api.developmentserver160.workers.dev",
+        changeOrigin: true,
+        secure: true,
+        cookieDomainRewrite: "",
+      },
+    },
   },
   build: {
     outDir: "dist",

@@ -6,7 +6,7 @@
   "scripts": {
     "dev:web": "vite",
     "dev:server": "node --watch server/index.js",
-    "dev":"vite run",
+    "dev": "vite run",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
