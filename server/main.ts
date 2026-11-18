@@ -3,7 +3,7 @@ import { cors } from "hono/cors";
 import companyController from "./controllers/company.controller";
 import employeeController from "./controllers/employee.controller";
 import attendanceController from "./controllers/attendance.controller";
-
+import adminController from "./controllers/admin.controller";
 type Bindings = {
   DB: D1Database;
 };
@@ -17,7 +17,7 @@ server.use(
     allowHeaders: ["Content-Type", "Authorization"],
     allowMethods: ["POST", "GET", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
-  })
+  }),
 );
 
 server.get("/", (c) => c.json({ status: "ok", service: "System Payroll API" }));
@@ -25,6 +25,5 @@ server.get("/", (c) => c.json({ status: "ok", service: "System Payroll API" }));
 server.route("/api/companies", companyController);
 server.route("/api/employees", employeeController);
 server.route("/api/attendance", attendanceController);
-
+server.route("/admin",adminController);
 export default server;
-

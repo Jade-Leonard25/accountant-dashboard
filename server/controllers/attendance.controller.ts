@@ -10,8 +10,12 @@ const attendanceController = new Hono<{ Bindings: Bindings }>();
 // Clock In (default shift start: 08:00 AM = 480 minutes)
 attendanceController.post("/clock-in", async (c) => {
   const db = drizzle(c.env.DB);
-  const { employeeId, logDate, timeInMinutes, shiftStartMinutes = 480 } =
-    await c.req.json();
+  const {
+    employeeId,
+    logDate,
+    timeInMinutes,
+    shiftStartMinutes = 480,
+  } = await c.req.json();
 
   const lateMinutes = Math.max(0, timeInMinutes - shiftStartMinutes);
 
@@ -48,7 +52,7 @@ attendanceController.put("/clock-out/:id", async (c) => {
 
   const netMinutes = Math.max(
     0,
-    timeOutMinutes - existing.timeInMinutes - breakMinutes
+    timeOutMinutes - existing.timeInMinutes - breakMinutes,
   );
   const totalHoursWorked = Number((netMinutes / 60).toFixed(2));
   const overtimeHours = Number(Math.max(0, totalHoursWorked - 8).toFixed(2));
@@ -77,7 +81,7 @@ attendanceController.get("/employee/:employeeId", async (c) => {
   const condition = dateFilter
     ? and(
         eq(attendanceLogs.employeeId, employeeId),
-        eq(attendanceLogs.logDate, dateFilter)
+        eq(attendanceLogs.logDate, dateFilter),
       )
     : eq(attendanceLogs.employeeId, employeeId);
 
@@ -86,4 +90,3 @@ attendanceController.get("/employee/:employeeId", async (c) => {
 });
 
 export default attendanceController;
-

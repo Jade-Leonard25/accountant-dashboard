@@ -8,9 +8,9 @@ type Bindings = { DB: D1Database };
 const employeeController = new Hono<{ Bindings: Bindings }>();
 
 const PLAN_LIMITS: Record<string, number> = {
-  free: 20,         // ₱0/month
-  small_100: 50,    // ₱100/month
-  medium_500: 500,  // ₱500/month
+  free: 20, // ₱0/month
+  small_100: 50, // ₱100/month
+  medium_500: 500, // ₱500/month
 };
 
 // Add a single employee (with tier limit check)
@@ -28,8 +28,10 @@ employeeController.post("/", async (c) => {
   const limit = PLAN_LIMITS[plan] ?? 20;
   if (count >= limit) {
     return c.json(
-      { error: `Plan limit reached (${limit} employees). Upgrade to add more.` },
-      403
+      {
+        error: `Plan limit reached (${limit} employees). Upgrade to add more.`,
+      },
+      403,
     );
   }
 
@@ -112,10 +114,12 @@ employeeController.put("/batch-rates", async (c) => {
         hourlyRateCents: item.hourlyRateCents,
         updatedAt: now,
       })
-      .where(eq(employees.id, item.id))
+      .where(eq(employees.id, item.id)),
   );
 
-  await db.batch(batchQueries as [typeof batchQueries[0], ...typeof batchQueries]);
+  await db.batch(
+    batchQueries as [(typeof batchQueries)[0], ...typeof batchQueries],
+  );
   return c.json({ success: true, updatedCount: updates.length });
 });
 
@@ -129,4 +133,3 @@ employeeController.delete("/:id", async (c) => {
 });
 
 export default employeeController;
-

@@ -9,7 +9,7 @@ bun install
 To run:
 
 ```bash
-bun run 
+bun run
 ```
 
 To type check:

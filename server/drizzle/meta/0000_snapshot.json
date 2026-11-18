@@ -80,12 +80,8 @@
           "name": "attendance_logs_employee_id_employees_id_fk",
           "tableFrom": "attendance_logs",
           "tableTo": "employees",
-          "columnsFrom": [
-            "employee_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["employee_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -224,12 +220,8 @@
           "name": "company_admin_id_user_admin_id_fk",
           "tableFrom": "company",
           "tableTo": "user_admin",
-          "columnsFrom": [
-            "admin_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["admin_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -479,12 +471,8 @@
           "name": "employees_admin_id_user_admin_id_fk",
           "tableFrom": "employees",
           "tableTo": "user_admin",
-          "columnsFrom": [
-            "admin_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["admin_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -492,12 +480,8 @@
           "name": "employees_company_id_company_id_fk",
           "tableFrom": "employees",
           "tableTo": "company",
-          "columnsFrom": [
-            "company_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["company_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -572,12 +556,8 @@
           "name": "session_user_id_user_admin_id_fk",
           "tableFrom": "session",
           "tableTo": "user_admin",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -649,9 +629,7 @@
       "indexes": {
         "user_admin_email_unique": {
           "name": "user_admin_email_unique",
-          "columns": [
-            "email"
-          ],
+          "columns": ["email"],
           "isUnique": true
         }
       },

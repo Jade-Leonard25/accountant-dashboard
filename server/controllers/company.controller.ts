@@ -65,4 +65,3 @@ companyController.put("/:id", async (c) => {
 });
 
 export default companyController;
-
