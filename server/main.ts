@@ -9,16 +9,16 @@ type Bindings = {
 };
 
 const server = new Hono<{ Bindings: Bindings }>();
-
 server.use(
   "*",
   cors({
-    origin: ["http://localhost:5173", "com.yourapp.payroll://","*"],
+    origin: (origin) => origin || "http://localhost:5173",
     allowHeaders: ["Content-Type", "Authorization"],
     allowMethods: ["POST", "GET", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
-  }),
+  })
 );
+
 
 server.get("/", (c) => c.json({ status: "ok", service: "System Payroll API" }));
 
