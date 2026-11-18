@@ -5,7 +5,9 @@
     "typecheck": "bun check"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@cloudflare/workers-types": "^5.20261118.1",
+    "@types/bun": "latest",
+    "wrangler": "^4.164.0"
   },
   "peerDependencies": {
     "typescript": "^7"

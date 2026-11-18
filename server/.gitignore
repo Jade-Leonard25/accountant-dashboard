@@ -1,34 +1,42 @@
-# dependencies (bun install)
-node_modules
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
 
-# output
-out
-dist
-*.tgz
-
-# code coverage
-coverage
-*.lcov
-
-# logs
-logs
-_.log
-report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
-
-# dotenv environment variable files
+# Secrets & Environment Variables (CRITICAL - Never push to GitHub)
 .env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
 
-# caches
-.eslintcache
-.cache
-*.tsbuildinfo
+# Cloudflare Wrangler Local State & Local D1 SQLite Files
+.wrangler/
+wrangler.toml.bak
 
-# IntelliJ based IDEs
-.idea
+# Electron Build & Packaging Outputs
+dist/
+dist-electron/
+out/
+release/
+build/
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.snap
 
-# Finder (MacOS) folder config
+# Local Databases & Logs
+*.sqlite
+*.sqlite3
+*.db
+*.log
+npm-debug.log*
+bun.lockb.bak
+
+# OS & Editor Files
 .DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
