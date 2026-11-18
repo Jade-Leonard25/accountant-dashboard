@@ -84,7 +84,7 @@ export default function Register() {
     try {
       setLoading(true);
       const response = await axios.post(
-        "http://localhost:4002/api/auth/register",
+        "https://system-payroll-api.developmentserver160.workers.dev/admin",
         data,
       );
       console.log("Register successful:", response.data);

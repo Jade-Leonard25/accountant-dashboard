@@ -6,7 +6,7 @@
   "scripts": {
     "dev:web": "vite",
     "dev:server": "node --watch server/index.js",
-    "dev": "concurrently -k -n server,app \"npm:dev:server\" \"wait-on http-get://127.0.0.1:3000/health && vite\"",
+    "dev":"vite run",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
