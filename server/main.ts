@@ -1,10 +1,11 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import companyController from "./controllers/company.controller";
+import employeeController from "./controllers/employee.controller";
+import attendanceController from "./controllers/attendance.controller";
 
 type Bindings = {
   DB: D1Database;
-  BETTER_AUTH_SECRET: string;
-  BETTER_AUTH_URL: string;
 };
 
 const server = new Hono<{ Bindings: Bindings }>();
@@ -19,9 +20,11 @@ server.use(
   })
 );
 
-server.get("/", (c) => {
-  return c.json({ message: "Hello World" });
-});
+server.get("/", (c) => c.json({ status: "ok", service: "System Payroll API" }));
+
+server.route("/api/companies", companyController);
+server.route("/api/employees", employeeController);
+server.route("/api/attendance", attendanceController);
 
 export default server;
 
