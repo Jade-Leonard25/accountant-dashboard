@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -11,7 +11,7 @@ let win
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1000,
+    width: 1200,
     height: 700,
     frame: false,
     webPreferences: {
@@ -23,33 +23,6 @@ function createWindow() {
   })
 
   if (!app.isPackaged) {
-    win.webContents.on('before-input-event', (event, input) => {
-      const isInspectShortcut =
-        input.type === 'keyDown' &&
-        (input.key === 'F12' ||
-          (input.shift &&
-            input.alt === (process.platform === 'darwin') &&
-            input.control === (process.platform !== 'darwin') &&
-            input.key.toLowerCase() === 'i'))
-
-      if (isInspectShortcut) {
-        event.preventDefault()
-        win.webContents.openDevTools()
-      }
-    })
-
-    win.webContents.on('context-menu', (_event, params) => {
-      const contextMenu = Menu.buildFromTemplate([
-        {
-          label: 'Inspect Element',
-          click: () => {
-            win.webContents.inspectElement(params.x, params.y)
-          },
-        },
-      ])
-      contextMenu.popup()
-    })
-
     win.loadURL(DEV_URL)
   } else {
     win.loadFile(path.join(__dirname, '../dist/index.html'))

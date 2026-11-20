@@ -1,19 +1,69 @@
-# React + Vite
+# Payroll Activation App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React, Vite, and Electron app for activating a payroll product key.
 
-Currently, two official plugins are available:
+## Development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+From this directory, install dependencies with Bun if needed, then start the
+Electron app:
 
-## React Compiler
+```sh
+bun install
+bun run dev
+```
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+Vite runs at `http://localhost:5173`. In development, the Electron window loads
+that URL.
 
-Note: This will impact Vite dev & build performances.
-You can also try [the experimental native React Compiler support in plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md#rust-react-compiler) by using `compiler: true` in the plugin options instead of using the Babel plugin.
+## Activation flow
 
-## Expanding the ESLint configuration
+The root route (`/`) asks for an activation key in the `xxx-xxx-xxx` format.
+The app trims and lowercases the value, validates its format, and sends it as
+JSON to:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```text
+POST https://system-payroll-api.automation-payroll.workers.dev/api/key-products/activate
+{ "key": "xxx-xxx-xxx" }
+```
+
+On successful activation, the app navigates to `/register` and passes the
+normalized key in React Router navigation state rather than putting it in the
+URL. Registration submits the key together with the user's name, email, and
+password to:
+
+```text
+POST https://system-payroll-api.automation-payroll.workers.dev/api/key-products/register-admin
+```
+
+The backend is responsible for linking the activated key to the new admin
+account and marking it redeemed. The registration endpoint is not live until
+the backend migration and deployment are complete.
+
+## Authentication client
+
+`src/auth-client.js` uses Better Auth's React client and exports the sign-in,
+sign-up, sign-out, session, and session-fetch helpers. It includes cookies and
+reads the optional Bearer token from local storage under
+`payroll_auth_token`.
+
+In development, auth requests use the local Vite origin and are proxied from
+`/api/auth` to the payroll API. Set `VITE_API_URL` to override the auth base URL.
+Production defaults to the payroll API origin.
+
+## Electron DevTools
+
+In development builds:
+
+- Press **F12** or **Ctrl+Shift+I** to open DevTools (use **Option+Shift+I** on
+  macOS).
+- Right-click and select **Inspect Element** to inspect an element.
+
+These shortcuts and the inspect context-menu item are enabled only in
+development.
+
+## Build and lint
+
+```sh
+bun run build
+bun run lint
+```
