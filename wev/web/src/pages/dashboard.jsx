@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import {
+  Building2,
+  Clock3,
   LayoutDashboard,
   LogOut,
   Settings,
   UserRound,
+  UserRoundCheck,
   Users,
 } from "lucide-react";
 import {
@@ -74,11 +77,6 @@ const getLocalClock = () => {
   };
 };
 
-const formatClockTime = (minutes) =>
-  `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(
-    minutes % 60,
-  ).padStart(2, "0")}`;
-
 const getAttendanceLog = (entry) =>
   entry.attendance_logs ?? entry.attendanceLogs ?? entry;
 
@@ -108,6 +106,8 @@ export default function Dashboard() {
   const [companyTaxId, setCompanyTaxId] = useState("");
   const [companyError, setCompanyError] = useState("");
   const [isCreatingCompany, setIsCreatingCompany] = useState(false);
+  const [companies, setCompanies] = useState([]);
+  const [isLoadingCompanies, setIsLoadingCompanies] = useState(true);
   const [selectedCompanyId, setSelectedCompanyId] = useState(
     () => window.localStorage.getItem(SELECTED_COMPANY_KEY) || "",
   );
@@ -115,12 +115,30 @@ export default function Dashboard() {
   const [attendanceLogs, setAttendanceLogs] = useState([]);
   const [loadedAttendanceCompanyId, setLoadedAttendanceCompanyId] = useState("");
   const [attendanceError, setAttendanceError] = useState("");
-  const [attendanceStatus, setAttendanceStatus] = useState("");
-  const [busyAttendanceEmployeeId, setBusyAttendanceEmployeeId] = useState("");
   const user = session?.user;
   const userName = user?.name || "Account";
   const userEmail = user?.email || "Email unavailable";
   const userRole = user?.role || "Role unavailable";
+  const today = getLocalClock().logDate;
+  const attendanceLoaded =
+    Boolean(selectedCompanyId) &&
+    loadedAttendanceCompanyId === selectedCompanyId;
+  const activeEmployeeCount = rosterEmployees.filter(
+    (employee) => employee.employmentStatus === "ACTIVE",
+  ).length;
+  const todayLogs = attendanceLoaded
+    ? attendanceLogs
+        .map(getAttendanceLog)
+        .filter((log) => log.logDate === today)
+    : [];
+  const clockedInCount = new Set(
+    todayLogs
+      .filter((log) => log.timeOutMinutes === null)
+      .map((log) => log.employeeId),
+  ).size;
+  const employeesWithAttendanceCount = new Set(
+    todayLogs.map((log) => log.employeeId),
+  ).size;
 
   useEffect(() => {
     let active = true;
@@ -133,6 +151,7 @@ export default function Dashboard() {
         if (!active) return;
         setRosterEmployees(loadedEmployees);
         setAttendanceLogs(loadedLogs);
+        setAttendanceError("");
         setLoadedAttendanceCompanyId(selectedCompanyId);
       })
       .catch((loadError) => {
@@ -151,50 +170,6 @@ export default function Dashboard() {
     };
   }, [selectedCompanyId]);
 
-  const handleAttendanceAction = async (employee, openLog) => {
-    setAttendanceError("");
-    setAttendanceStatus("");
-    setBusyAttendanceEmployeeId(employee.id);
-    const clock = getLocalClock();
-
-    try {
-      if (openLog) {
-        await apiRequest(
-          `/api/attendance/admin/clock-out/${encodeURIComponent(openLog.id)}`,
-          {
-            method: "PUT",
-            body: { timeOutMinutes: clock.minutes, breakMinutes: 60 },
-          },
-        );
-        setAttendanceStatus(`${employee.firstname} ${employee.lastname} clocked out.`);
-      } else {
-        await apiRequest("/api/attendance/admin/clock-in", {
-          method: "POST",
-          body: {
-            employeeId: employee.id,
-            companyId: selectedCompanyId,
-            logDate: clock.logDate,
-            timeInMinutes: clock.minutes,
-            shiftStartMinutes: 480,
-          },
-        });
-        setAttendanceStatus(`${employee.firstname} ${employee.lastname} clocked in.`);
-      }
-      const { employees: loadedEmployees, logs: loadedLogs } =
-        await fetchCompanyAttendance(selectedCompanyId);
-      setRosterEmployees(loadedEmployees);
-      setAttendanceLogs(loadedLogs);
-    } catch (actionError) {
-      setAttendanceError(
-        actionError instanceof Error
-          ? actionError.message
-          : "Could not update employee attendance.",
-      );
-    } finally {
-      setBusyAttendanceEmployeeId("");
-    }
-  };
-
   const handleCreateCompany = async (event) => {
     event.preventDefault();
     setCompanyError("");
@@ -209,6 +184,10 @@ export default function Dashboard() {
         throw new Error("The server did not return the new company ID.");
       }
 
+      setCompanies((currentCompanies) => [
+        ...currentCompanies,
+        result.data,
+      ]);
       window.localStorage.setItem(SELECTED_COMPANY_KEY, result.data.id);
       setSelectedCompanyId(result.data.id);
       setCompanyName("");
@@ -255,6 +234,9 @@ export default function Dashboard() {
       .then((result) => {
         if (!active) return;
         const ownedCompanies = Array.isArray(result?.data) ? result.data : [];
+        setCompanies(ownedCompanies);
+        setIsLoadingCompanies(false);
+        setCompanyError("");
         const savedCompanyId = window.localStorage.getItem(SELECTED_COMPANY_KEY);
         const initialCompanyId = ownedCompanies.some(
           (company) => company.id === savedCompanyId,
@@ -268,6 +250,7 @@ export default function Dashboard() {
       })
       .catch((loadError) => {
         if (active) {
+          setIsLoadingCompanies(false);
           setCompanyError(
             loadError instanceof Error
               ? loadError.message
@@ -458,28 +441,152 @@ export default function Dashboard() {
             </p>
           )}
 
-          <section className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Welcome, {userName}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Your admin workspace is ready.
-            </p>
+          <section className="flex flex-wrap items-end justify-between gap-4">
+            <div className="space-y-1">
+              <h1 className="text-2xl font-semibold tracking-tight">
+                Company overview
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Welcome, {userName}. Here is your payroll and attendance at a
+                glance.
+              </p>
+            </div>
+            <label className="grid min-w-56 gap-1 text-sm font-medium">
+              Company
+              <select
+                value={selectedCompanyId}
+                onChange={(event) => {
+                  const companyId = event.target.value;
+                  setSelectedCompanyId(companyId);
+                  setAttendanceError("");
+                  if (companyId) {
+                    window.localStorage.setItem(SELECTED_COMPANY_KEY, companyId);
+                  } else {
+                    window.localStorage.removeItem(SELECTED_COMPANY_KEY);
+                  }
+                }}
+                disabled={isLoadingCompanies || companies.length === 0}
+                className="h-10 rounded-md border bg-background px-3 font-normal"
+              >
+                {companies.length ? (
+                  companies.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.name}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">
+                    {isLoadingCompanies ? "Loading companies…" : "No company yet"}
+                  </option>
+                )}
+              </select>
+            </label>
           </section>
 
-          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <section
+            aria-label="Financial summary"
+            className="space-y-3"
+          >
+            <div>
+              <h2 className="font-medium">Financial summary</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Financial balances will appear when ledger and billing records
+                are available.
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {[
+                ["Cash on hand & bank", "Ledger data not connected"],
+                ["Accounts receivable", "Invoice data not connected"],
+                ["Accounts payable", "Expense data not connected"],
+                ["Net income (MTD / YTD)", "Posted ledger data not connected"],
+              ].map(([label, detail]) => (
+                <article
+                  className="rounded-xl border border-dashed bg-background p-5"
+                  key={label}
+                >
+                  <p className="text-sm text-muted-foreground">{label}</p>
+                  <p className="mt-3 text-2xl font-semibold text-muted-foreground">
+                    —
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section
+            aria-label="Company payroll overview"
+            className="space-y-3"
+          >
+            <div>
+              <h2 className="font-medium">Payroll operations</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Live counts from the selected company’s employee and attendance
+                records.
+              </p>
+            </div>
+            {attendanceError && (
+              <p role="alert" className="text-sm text-destructive">
+                Could not load payroll attendance: {attendanceError}
+              </p>
+            )}
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <article className="rounded-xl border bg-background p-5">
-              <p className="text-sm text-muted-foreground">Account</p>
-              <p className="mt-2 truncate font-medium">{userEmail}</p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">Companies</p>
+                <Building2 className="size-4 text-muted-foreground" aria-hidden="true" />
+              </div>
+              <p className="mt-3 text-2xl font-semibold tabular-nums">
+                {isLoadingCompanies ? "—" : companies.length}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Available in your workspace
+              </p>
             </article>
             <article className="rounded-xl border bg-background p-5">
-              <p className="text-sm text-muted-foreground">Role</p>
-              <p className="mt-2 font-medium">{userRole}</p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">Active employees</p>
+                <Users className="size-4 text-muted-foreground" aria-hidden="true" />
+              </div>
+              <p className="mt-3 text-2xl font-semibold tabular-nums">
+                {attendanceLoaded ? activeEmployeeCount : "—"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {attendanceLoaded
+                  ? `Of ${rosterEmployees.length} employees in this company`
+                  : selectedCompanyId
+                    ? "Loading company roster…"
+                    : "Select or create a company"}
+              </p>
             </article>
             <article className="rounded-xl border bg-background p-5">
-              <p className="text-sm text-muted-foreground">Workspace</p>
-              <p className="mt-2 font-medium">Admin dashboard</p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">On shift today</p>
+                <Clock3 className="size-4 text-muted-foreground" aria-hidden="true" />
+              </div>
+              <p className="mt-3 text-2xl font-semibold tabular-nums">
+                {attendanceLoaded ? clockedInCount : "—"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Employees with an open attendance record
+              </p>
             </article>
+            <article className="rounded-xl border bg-background p-5">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  Attendance recorded today
+                </p>
+                <UserRoundCheck className="size-4 text-muted-foreground" aria-hidden="true" />
+              </div>
+              <p className="mt-3 text-2xl font-semibold tabular-nums">
+                {attendanceLoaded ? employeesWithAttendanceCount : "—"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Unique employees with today’s time log
+              </p>
+            </article>
+            </div>
           </section>
 
           <section className="rounded-xl border bg-background p-5">
@@ -522,115 +629,6 @@ export default function Dashboard() {
               <p role="alert" className="mt-3 text-sm text-destructive">
                 {companyError}
               </p>
-            )}
-          </section>
-
-          <section className="rounded-xl border bg-background p-5">
-            <div className="mb-4">
-              <h2 className="font-medium">Employee time clock</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Use each employee’s row to record local clock-in and clock-out.
-                A standard shift is 8 worked hours with a 60-minute break;
-                overtime is calculated after 8 worked hours.
-              </p>
-            </div>
-            {attendanceError && (
-              <p role="alert" className="mb-3 text-sm text-destructive">
-                {attendanceError}
-              </p>
-            )}
-            {attendanceStatus && (
-              <p role="status" className="mb-3 text-sm text-green-700">
-                {attendanceStatus}
-              </p>
-            )}
-            {!selectedCompanyId ? (
-              <p className="text-sm text-muted-foreground">
-                Create or select a company to view its employees.
-              </p>
-            ) : selectedCompanyId !== loadedAttendanceCompanyId ? (
-              <p className="text-sm text-muted-foreground">
-                Loading employees…
-              </p>
-            ) : rosterEmployees.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No employees found for this company yet.
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[640px] text-left text-sm">
-                  <thead>
-                    <tr className="border-b text-muted-foreground">
-                      <th className="px-3 py-2 font-medium">Employee</th>
-                      <th className="px-3 py-2 font-medium">Attendance</th>
-                      <th className="px-3 py-2 font-medium">Time in</th>
-                      <th className="px-3 py-2 font-medium">Time out</th>
-                      <th className="px-3 py-2 font-medium">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rosterEmployees.map((employee) => {
-                      const employeeLogs = attendanceLogs
-                        .map(getAttendanceLog)
-                        .filter((log) => log.employeeId === employee.id)
-                        .sort((left, right) =>
-                          `${right.logDate}${String(right.createdAt ?? "")}`.localeCompare(
-                            `${left.logDate}${String(left.createdAt ?? "")}`,
-                          ),
-                        );
-                      const openLog = employeeLogs.find(
-                        (log) => log.timeOutMinutes === null,
-                      );
-                      const latestLog = openLog ?? employeeLogs[0];
-                      const isActive = employee.employmentStatus === "ACTIVE";
-                      const isBusy =
-                        busyAttendanceEmployeeId === employee.id;
-                      return (
-                        <tr key={employee.id} className="border-b last:border-0">
-                          <td className="px-3 py-3">
-                            <p className="font-medium">
-                              {employee.firstname} {employee.lastname}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {employee.position || employee.department || ""}
-                            </p>
-                          </td>
-                          <td className="px-3 py-3">
-                            {openLog ? "On shift" : latestLog ? "Clocked out" : "Not clocked in"}
-                          </td>
-                          <td className="px-3 py-3">
-                            {latestLog
-                              ? `${latestLog.logDate} ${formatClockTime(latestLog.timeInMinutes)}`
-                              : "—"}
-                          </td>
-                          <td className="px-3 py-3">
-                            {latestLog && latestLog.timeOutMinutes !== null
-                              ? formatClockTime(latestLog.timeOutMinutes)
-                              : "—"}
-                          </td>
-                          <td className="px-3 py-3">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant={openLog ? "outline" : "default"}
-                              disabled={!isActive || isBusy}
-                              onClick={() =>
-                                handleAttendanceAction(employee, openLog)
-                              }
-                            >
-                              {isBusy
-                                ? "Saving…"
-                                : openLog
-                                  ? "Clock out"
-                                  : "Clock in"}
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
             )}
           </section>
 

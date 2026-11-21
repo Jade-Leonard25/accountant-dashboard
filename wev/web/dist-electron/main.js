@@ -1,87 +1,124 @@
-import { BrowserWindow as e, app as t, ipcMain as n, session as r } from "electron";
-import { mkdir as i, readFile as a, writeFile as o } from "node:fs/promises";
-import s from "node:path";
-import { fileURLToPath as c } from "node:url";
+import { BrowserWindow, app, ipcMain, session } from "electron";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 // electron/main.js
-var l = s.dirname(c(import.meta.url)), u = "http://localhost:5173", d = "https://system-payroll-api.automation-payroll.workers.dev", f = "admin-registration-state", p = "app-settings.json", m, h = !1, g = !1;
-async function _() {
-	let e = s.join(t.getPath("userData"), p);
+var __dirname = path.dirname(fileURLToPath(import.meta.url));
+var DEV_URL = `http://localhost:5173`;
+var API_ORIGIN = "https://system-payroll-api.automation-payroll.workers.dev";
+var ADMIN_REGISTRATION_FILE = "admin-registration-state";
+var SETTINGS_FILE = "app-settings.json";
+var win;
+var allowWindowClose = false;
+var preparingWindowClose = false;
+async function readSettings() {
+	const settingsPath = path.join(app.getPath("userData"), SETTINGS_FILE);
 	try {
-		let t = JSON.parse(await a(e, "utf8"));
-		return { stayLoggedIn: typeof t.stayLoggedIn != "boolean" || t.stayLoggedIn };
-	} catch (e) {
-		if (e.code === "ENOENT") return { stayLoggedIn: !0 };
-		throw e;
+		const settings = JSON.parse(await readFile(settingsPath, "utf8"));
+		return { stayLoggedIn: typeof settings.stayLoggedIn === "boolean" ? settings.stayLoggedIn : true };
+	} catch (error) {
+		if (error.code === "ENOENT") return { stayLoggedIn: true };
+		throw error;
 	}
 }
-async function v(e) {
-	let n = t.getPath("userData");
-	await i(n, { recursive: !0 }), await o(s.join(n, p), JSON.stringify(e), { mode: 384 });
+async function writeSettings(settings) {
+	const userDataPath = app.getPath("userData");
+	await mkdir(userDataPath, { recursive: true });
+	await writeFile(path.join(userDataPath, SETTINGS_FILE), JSON.stringify(settings), { mode: 384 });
 }
-function y() {
-	m = new e({
+function createWindow() {
+	win = new BrowserWindow({
 		width: 1200,
 		height: 700,
-		frame: !1,
+		frame: false,
 		webPreferences: {
 			partition: "persist:default",
-			preload: s.join(l, "preload.cjs"),
-			contextIsolation: !0,
-			nodeIntegration: !1,
-			sandbox: !1
+			preload: path.join(__dirname, "preload.cjs"),
+			contextIsolation: true,
+			nodeIntegration: false,
+			sandbox: false
 		}
-	}), m.webContents.on("preload-error", (e, t, n) => {
-		console.error(`Failed to load Electron preload "${t}":`, n);
-	}), t.isPackaged ? m.loadFile(s.join(l, "../dist/index.html")) : m.loadURL(u), m.on("maximize", () => m.webContents.send("window:maximized", !0)), m.on("unmaximize", () => m.webContents.send("window:maximized", !1)), m.on("close", (e) => {
-		h || (e.preventDefault(), b().catch((e) => {
-			console.error("Could not close the app window:", e);
-		}));
+	});
+	win.webContents.on("preload-error", (_event, preloadPath, error) => {
+		console.error(`Failed to load Electron preload "${preloadPath}":`, error);
+	});
+	if (!app.isPackaged) win.loadURL(DEV_URL);
+	else win.loadFile(path.join(__dirname, "../dist/index.html"));
+	win.on("maximize", () => win.webContents.send("window:maximized", true));
+	win.on("unmaximize", () => win.webContents.send("window:maximized", false));
+	win.on("close", (event) => {
+		if (allowWindowClose) return;
+		event.preventDefault();
+		requestWindowClose().catch((error) => {
+			console.error("Could not close the app window:", error);
+		});
 	});
 }
-async function b() {
-	if (!(!m || m.isDestroyed() || g)) {
-		g = !0;
-		try {
-			let { stayLoggedIn: e } = await _();
-			if (e) {
-				h = !0, g = !1, m.close();
-				return;
-			}
-			m.webContents.send("auth:prepare-close");
-		} catch (e) {
-			throw g = !1, m.webContents.send("auth:close-failed", e instanceof Error ? e.message : "Could not read app settings."), e;
-		}
-	}
-}
-n.on("window:minimize", () => m?.minimize()), n.on("window:maximize", () => {
-	m && (m.isMaximized() ? m.unmaximize() : m.maximize());
-}), n.handle("window:close", b), n.on("auth:close-ready", () => {
-	h = !0, g = !1, m?.close();
-}), n.on("auth:close-failed", (e, t) => {
-	g = !1, m?.webContents.send("auth:close-failed", typeof t == "string" ? t : "Could not log out before closing.");
-}), n.handle("settings:get", _), n.handle("settings:set-stay-logged-in", async (e, t) => {
-	if (typeof t != "boolean") throw TypeError("Stay logged in setting must be a boolean.");
-	await v({
-		...await _(),
-		stayLoggedIn: t
-	});
-}), n.handle("auth:get-admin-registered", async () => {
-	let e = s.join(t.getPath("userData"), f);
+async function requestWindowClose() {
+	if (!win || win.isDestroyed() || preparingWindowClose) return;
+	preparingWindowClose = true;
 	try {
-		return await a(e, "utf8") === "registered";
-	} catch (e) {
-		if (e.code === "ENOENT") return !1;
-		throw e;
+		const { stayLoggedIn } = await readSettings();
+		if (stayLoggedIn) {
+			allowWindowClose = true;
+			preparingWindowClose = false;
+			win.close();
+			return;
+		}
+		win.webContents.send("auth:prepare-close");
+	} catch (error) {
+		preparingWindowClose = false;
+		win.webContents.send("auth:close-failed", error instanceof Error ? error.message : "Could not read app settings.");
+		throw error;
 	}
-}), n.handle("auth:mark-admin-registered", async () => {
-	let e = t.getPath("userData");
-	await i(e, { recursive: !0 }), await o(s.join(e, f), "registered", { mode: 384 });
-}), t.whenReady().then(() => {
-	r.fromPartition("persist:default").webRequest.onBeforeSendHeaders({ urls: [`${d}/*`] }, (e, t) => {
-		let n = { ...e.requestHeaders };
-		n.Origin = d, n.Referer = `${d}/`, t({ requestHeaders: n });
-	}), y();
-}), t.on("window-all-closed", () => {
-	process.platform !== "darwin" && t.quit();
+}
+ipcMain.on("window:minimize", () => win?.minimize());
+ipcMain.on("window:maximize", () => {
+	if (!win) return;
+	win.isMaximized() ? win.unmaximize() : win.maximize();
+});
+ipcMain.handle("window:close", requestWindowClose);
+ipcMain.on("auth:close-ready", () => {
+	allowWindowClose = true;
+	preparingWindowClose = false;
+	win?.close();
+});
+ipcMain.on("auth:close-failed", (_event, message) => {
+	preparingWindowClose = false;
+	win?.webContents.send("auth:close-failed", typeof message === "string" ? message : "Could not log out before closing.");
+});
+ipcMain.handle("settings:get", readSettings);
+ipcMain.handle("settings:set-stay-logged-in", async (_event, stayLoggedIn) => {
+	if (typeof stayLoggedIn !== "boolean") throw new TypeError("Stay logged in setting must be a boolean.");
+	await writeSettings({
+		...await readSettings(),
+		stayLoggedIn
+	});
+});
+ipcMain.handle("auth:get-admin-registered", async () => {
+	const markerPath = path.join(app.getPath("userData"), ADMIN_REGISTRATION_FILE);
+	try {
+		return await readFile(markerPath, "utf8") === "registered";
+	} catch (error) {
+		if (error.code === "ENOENT") return false;
+		throw error;
+	}
+});
+ipcMain.handle("auth:mark-admin-registered", async () => {
+	const userDataPath = app.getPath("userData");
+	await mkdir(userDataPath, { recursive: true });
+	await writeFile(path.join(userDataPath, ADMIN_REGISTRATION_FILE), "registered", { mode: 384 });
+});
+app.whenReady().then(() => {
+	session.fromPartition("persist:default").webRequest.onBeforeSendHeaders({ urls: [`${API_ORIGIN}/*`] }, (details, callback) => {
+		const headers = { ...details.requestHeaders };
+		headers.Origin = API_ORIGIN;
+		headers.Referer = `${API_ORIGIN}/`;
+		callback({ requestHeaders: headers });
+	});
+	createWindow();
+});
+app.on("window-all-closed", () => {
+	if (process.platform !== "darwin") app.quit();
 });
 export {};

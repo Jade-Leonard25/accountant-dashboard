@@ -1,40 +1,53 @@
 import { useEffect, useRef, useState } from "react";
 import {
   CloudUpload,
+  Download,
+  FilePlus2,
   FileUp,
   LayoutDashboard,
+  LoaderCircle,
   Redo2,
-  RotateCcw,
+  Save,
   Undo2,
   Users,
 } from "lucide-react";
 import { Link } from "react-router";
+import { toast } from "@/components/ui/toast";
+import {
+  Menubar,
+  MenubarContent,
+  MenubarItem,
+  MenubarMenu,
+  MenubarSeparator,
+  MenubarTrigger,
+} from "@/components/ui/menubar";
+import { Button } from "@/components/ui/button";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 import { useSession } from "../auth-client";
 import { apiRequest } from "../api-client";
-import * as XLSX from "xlsx";
 import { columnName, parseCsv } from "../lib/csv";
-import { LocaleType } from "@univerjs/presets";
-import { createUniver } from "@univerjs/presets";
-import { UniverSheetsCorePreset } from "@univerjs/preset-sheets-core";
-import SheetsCoreEnUS from "@univerjs/preset-sheets-core/locales/en-US";
-import "@univerjs/design/lib/index.css";
-import "@univerjs/preset-sheets-core/lib/index.css";
 
 const STORAGE_KEY = "payroll_mock_employees_workbook";
 const SELECTED_COMPANY_KEY = "payroll_selected_company_id";
 const WORKBOOK_NAME = "Employees";
-
-const sampleRows = [
-  ["EMP-1001", "Jordan Lee", "jordan.lee@example.com", "Finance", "Payroll Analyst", "Full-time", "2022-03-14", "Active", "New York", 72000],
-  ["EMP-1002", "Taylor Morgan", "taylor.morgan@example.com", "People", "HR Coordinator", "Full-time", "2021-08-02", "Active", "Chicago", 64500],
-  ["EMP-1003", "Casey Rivera", "casey.rivera@example.com", "Operations", "Office Manager", "Full-time", "2023-01-09", "Active", "Austin", 61000],
-  ["EMP-1004", "Avery Patel", "avery.patel@example.com", "Engineering", "Software Engineer", "Full-time", "2020-11-16", "Active", "Remote", 118000],
-  ["EMP-1005", "Morgan Chen", "morgan.chen@example.com", "Marketing", "Content Strategist", "Part-time", "2024-02-05", "On leave", "Seattle", 54000],
-  ["EMP-1006", "Riley Johnson", "riley.johnson@example.com", "Customer Success", "Support Specialist", "Full-time", "2022-07-18", "Active", "Denver", 58000],
-  ["EMP-1007", "Jamie Brooks", "jamie.brooks@example.com", "Finance", "Accounts Assistant", "Contract", "2024-06-03", "Active", "Remote", 52000],
-  ["EMP-1008", "Drew Wilson", "drew.wilson@example.com", "Sales", "Account Executive", "Full-time", "2021-04-26", "Active", "Boston", 84000],
-];
-const employeeHeaders = [
+const EMPLOYEE_BATCH_SIZE = 1000;
+const MAX_EMPLOYEE_BATCH_BYTES = 4 * 1024 * 1024;
+const MAX_DIRECT_IMPORT_ROWS = 100000;
+const MAX_DIRECT_IMPORT_BYTES = 50 * 1024 * 1024;
+const EMPLOYEE_HEADERS = [
   "Full Name",
   "Email",
   "Department",
@@ -53,30 +66,8 @@ const employeeHeaders = [
   "Base Salary (PHP)",
   "Daily Rate (PHP)",
   "Hourly Rate (PHP)",
-  "Backend ID",
+  "Employee ID",
 ];
-
-const employeeRows = sampleRows.map((row) => [
-  row[1],
-  row[2],
-  row[3],
-  row[4],
-  row[5],
-  row[6],
-  row[7],
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-]);
 
 const FIELD_HEADERS = {
   fullName: ["fullname", "name", "employeename"],
@@ -102,7 +93,7 @@ const FIELD_HEADERS = {
   baseSalary: ["basesalaryphp", "basesalary", "salary"],
   dailyRate: ["dailyratephp", "dailyrate"],
   hourlyRate: ["hourlyratephp", "hourlyrate"],
-  backendId: ["backendid", "serverid"],
+  backendId: ["employeeid", "payrollid", "backendid", "serverid"],
 };
 
 function normalizeHeader(value) {
@@ -115,6 +106,34 @@ function getFieldValue(values, headers, field) {
     aliases.includes(normalizeHeader(header)),
   );
   return index < 0 ? "" : (values[index] ?? "");
+}
+
+function initializeEmployeeSheet(sheet) {
+  sheet.getRange("A1:S1").setValues([EMPLOYEE_HEADERS]);
+  sheet
+    .getRange("A1:S1")
+    .setBackgroundColor("#1f2937")
+    .setFontColor("#ffffff")
+    .setFontWeight("bold")
+    .setWrap(true);
+  sheet.setRowHeight(0, 40);
+  [
+    200, 240, 150, 190, 145, 120, 110, 130, 120, 140, 220, 150, 140, 150,
+    150, 145, 140, 150, 180,
+  ].forEach((width, index) => sheet.setColumnWidth(index, width));
+  sheet.hideColumns(18, 1);
+}
+
+function isDefaultEmployeeRoster(rows) {
+  return (
+    rows.length === 51 &&
+    normalizeHeader(rows[0]?.[0]) === "fullname" &&
+    normalizeHeader(rows[0]?.[1]) === "email" &&
+    rows[1]?.[0] === "Clarissa Santos" &&
+    rows[1]?.[1] === "clarissa.santos@example.com" &&
+    rows[2]?.[0] === "Marco Bautista" &&
+    rows[2]?.[1] === "marco.bautista@example.com"
+  );
 }
 
 const COLUMN = {
@@ -144,43 +163,6 @@ const navigationItems = [
   { label: "Employees", href: "/createEmployees", Icon: Users },
 ];
 
-const menuItems = {
-  File: [
-    {
-      id: "upload-spreadsheet",
-      label: "Upload Excel or CSV to spreadsheet",
-      Icon: FileUp,
-    },
-    { id: "send", label: "Save employees to backend", Icon: CloudUpload },
-    { id: "reset", label: "Reset sample data", Icon: RotateCcw },
-  ],
-  Edit: [
-    { id: "undo", label: "Undo", Icon: Undo2 },
-    { id: "redo", label: "Redo", Icon: Redo2 },
-    { id: "cut", label: "Cut" },
-    { id: "copy", label: "Copy" },
-    { id: "paste", label: "Paste" },
-  ],
-};
-
-function initializeWorkbook(workbook, rows = employeeRows) {
-  const sheet = workbook.getActiveSheet();
-  sheet.getRange("A1:S1").setValues([employeeHeaders]);
-  sheet
-    .getRange("A1:S1")
-    .setBackgroundColor("#1f2937")
-    .setFontColor("#ffffff")
-    .setFontWeight("bold");
-  if (rows.length) {
-    sheet.getRange(`A2:S${rows.length + 1}`).setValues(rows);
-  }
-  sheet.setRowHeight(0, 34);
-  [
-    200, 240, 150, 190, 145, 120, 110, 130, 120, 140, 220, 150, 140, 150,
-    150, 145, 140, 150, 180,
-  ].forEach((width, index) => sheet.setColumnWidth(index, width));
-}
-
 function replaceSheetWithRows(sheet, parsedRows) {
   const headers = parsedRows[0].map((header) => header.trim());
   if (headers.some((header) => !header)) {
@@ -191,7 +173,7 @@ function replaceSheetWithRows(sheet, parsedRows) {
   }
   if (headers.length > 19) {
     throw new Error(
-      "Spreadsheet upload supports up to 19 columns so backend IDs can be tracked in the sheet.",
+      "Spreadsheet upload supports up to 19 columns so employee IDs can be tracked in the sheet.",
     );
   }
   if (parsedRows.some((row) => row.length > headers.length)) {
@@ -203,8 +185,13 @@ function replaceSheetWithRows(sheet, parsedRows) {
     throw new Error("CSV column headers must be unique.");
   }
 
-  if (!headers.some((header) => FIELD_HEADERS.backendId.includes(normalizeHeader(header)))) {
-    headers.push("Backend ID");
+  const employeeIdColumn = headers.findIndex((header) =>
+    FIELD_HEADERS.backendId.includes(normalizeHeader(header)),
+  );
+  if (employeeIdColumn < 0) {
+    headers.push("Employee ID");
+  } else {
+    headers[employeeIdColumn] = "Employee ID";
   }
   const width = headers.length;
   const rows = parsedRows.map((row) =>
@@ -224,6 +211,7 @@ function replaceSheetWithRows(sheet, parsedRows) {
     .setFontColor("#ffffff")
     .setFontWeight("bold")
     .setWrap(true);
+  sheet.hideColumns(employeeIdColumn < 0 ? width - 1 : employeeIdColumn, 1);
   if (rows.length > 1) {
     sheet
       .getRange(`A2:${columnName(width - 1)}${rows.length}`)
@@ -254,13 +242,13 @@ function replaceSheetWithRows(sheet, parsedRows) {
 export default function CreateEmployees() {
   const containerRef = useRef(null);
   const csvInputRef = useRef(null);
+  const payrollImportInputRef = useRef(null);
   const workbookRef = useRef(null);
   const univerApiRef = useRef(null);
   const backendSaveRef = useRef(false);
   const { data: session } = useSession();
   const [status, setStatus] = useState("Loading spreadsheet…");
   const [error, setError] = useState("");
-  const [openMenu, setOpenMenu] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [isLoadingCompanies, setIsLoadingCompanies] = useState(true);
   const [selectedCompanyId, setSelectedCompanyId] = useState(
@@ -281,6 +269,7 @@ export default function CreateEmployees() {
       if (isCsv) {
         parsedRows = parseCsv(await file.text());
       } else {
+        const XLSX = await import("xlsx");
         const excelWorkbook = XLSX.read(await file.arrayBuffer(), {
           cellDates: true,
         });
@@ -319,6 +308,238 @@ export default function CreateEmployees() {
       );
     } finally {
       if (csvInputRef.current) csvInputRef.current.value = "";
+    }
+  };
+
+  const importEmployeeFileToPayroll = async (file) => {
+    if (!file) return;
+    if (!selectedCompanyId) {
+      setServerError("Create or select a company before importing employees.");
+      return;
+    }
+
+    setIsSavingToBackend(true);
+    backendSaveRef.current = true;
+    setServerError("");
+    const uploadToastId = toast.add({
+      type: "loading",
+      title: "Preparing employee import",
+      description: `Reading ${file.name}…`,
+      timeout: 0,
+    });
+    let importedCount = 0;
+
+    try {
+      if (file.size > MAX_DIRECT_IMPORT_BYTES) {
+        throw new Error("Employee import files must be 50 MB or smaller.");
+      }
+
+      const isCsv = /\.csv$/i.test(file.name) || file.type === "text/csv";
+      let parsedRows;
+      if (isCsv) {
+        parsedRows = parseCsv(await file.text());
+      } else {
+        const XLSX = await import("xlsx");
+        const excelWorkbook = XLSX.read(await file.arrayBuffer(), {
+          cellDates: true,
+        });
+        const firstSheetName = excelWorkbook.SheetNames[0];
+        const firstSheet = firstSheetName
+          ? excelWorkbook.Sheets[firstSheetName]
+          : undefined;
+        if (!firstSheet) {
+          throw new Error("The Excel file does not contain a readable worksheet.");
+        }
+        parsedRows = XLSX.utils.sheet_to_json(firstSheet, {
+          header: 1,
+          defval: "",
+          raw: false,
+          dateNF: "yyyy-mm-dd",
+        });
+      }
+
+      const headers = parsedRows[0]?.map((header) => String(header).trim());
+      if (!headers?.length || headers.some((header) => !header)) {
+        throw new Error("Every employee column must have a header.");
+      }
+      if (new Set(headers.map(normalizeHeader)).size !== headers.length) {
+        throw new Error("Employee column headers must be unique.");
+      }
+      const records = parsedRows.slice(1);
+      if (records.length > MAX_DIRECT_IMPORT_ROWS) {
+        throw new Error("Employee imports support up to 100,000 rows.");
+      }
+      if (records.some((row) => row.length > headers.length)) {
+        throw new Error("A row has more cells than the header. Check the source file.");
+      }
+
+      const readyEmployees = [];
+      let incompleteRows = 0;
+      for (const [index, values] of records.entries()) {
+        const fullName = String(getFieldValue(values, headers, "fullName") ?? "")
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean);
+        const firstname =
+          String(getFieldValue(values, headers, "firstName") ?? "").trim() ||
+          fullName[0] ||
+          "";
+        const lastname =
+          String(getFieldValue(values, headers, "lastName") ?? "").trim() ||
+          (fullName.length > 1 ? fullName.at(-1) : "");
+        const amounts = [
+          getFieldValue(values, headers, "baseSalary"),
+          getFieldValue(values, headers, "dailyRate"),
+          getFieldValue(values, headers, "hourlyRate"),
+        ].map((value) => Number(String(value).replace(/[,\s$₱]/g, "")));
+        const requiredValues = [
+          firstname,
+          lastname,
+          String(getFieldValue(values, headers, "dateHired") ?? "").trim(),
+          String(getFieldValue(values, headers, "socialSecurityNumber") ?? "").trim(),
+          String(getFieldValue(values, headers, "pagIbigID") ?? "").trim(),
+          String(getFieldValue(values, headers, "philhealth") ?? "").trim(),
+          String(getFieldValue(values, headers, "taxIdNumber") ?? "").trim(),
+        ];
+        if (
+          requiredValues.some((value) => !value) ||
+          amounts.some((amount) => !Number.isFinite(amount) || amount <= 0)
+        ) {
+          incompleteRows += 1;
+          continue;
+        }
+
+        const type = String(getFieldValue(values, headers, "employmentType") ?? "")
+          .toLowerCase();
+        const employmentStatus = String(
+          getFieldValue(values, headers, "employmentStatus") || "ACTIVE",
+        )
+          .trim()
+          .toUpperCase()
+          .replace(/[\s-]+/g, "_");
+        const optionalText = (field) =>
+          String(getFieldValue(values, headers, field) ?? "").trim() || null;
+
+        readyEmployees.push({
+          firstname,
+          middlename:
+            optionalText("middleName") ||
+            (fullName.length > 2 ? fullName.slice(1, -1).join(" ") : null),
+          lastname,
+          extname: optionalText("extension"),
+          birthdate: optionalText("birthdate"),
+          gender: optionalText("gender"),
+          civilStatus: optionalText("civilStatus") || "SINGLE",
+          email: optionalText("email"),
+          phone: optionalText("phone"),
+          address: optionalText("address"),
+          employmentType: type.includes("contract")
+            ? "CONTRACT"
+            : type.includes("part")
+              ? "PART_TIME"
+              : "REGULAR",
+          employmentStatus,
+          dateHired: requiredValues[2],
+          department: optionalText("department"),
+          position: optionalText("position"),
+          socialSecurityNumber: requiredValues[3],
+          pagIbigID: requiredValues[4],
+          philhealth: requiredValues[5],
+          taxIdNumber: requiredValues[6],
+          baseSalaryCents: Math.round(amounts[0] * 100),
+          dailyRateCents: Math.round(amounts[1] * 100),
+          hourlyRateCents: Math.round(amounts[2] * 100),
+        });
+
+        if (index % 5000 === 0) {
+          toast.update(uploadToastId, {
+            description: `Preparing employee ${index + 1} of ${records.length}…`,
+          });
+          await new Promise((resolve) => window.setTimeout(resolve, 0));
+        }
+      }
+
+      if (!readyEmployees.length) {
+        throw new Error(
+          `No complete employees to import. ${incompleteRows} row${incompleteRows === 1 ? "" : "s"} need required payroll details.`,
+        );
+      }
+
+      let start = 0;
+      while (start < readyEmployees.length) {
+        const batch = [];
+        let batchBytes = 128;
+        while (
+          start + batch.length < readyEmployees.length &&
+          batch.length < EMPLOYEE_BATCH_SIZE
+        ) {
+          const employee = readyEmployees[start + batch.length];
+          const employeeBytes = new TextEncoder().encode(
+            JSON.stringify(employee),
+          ).byteLength + 1;
+          if (employeeBytes > MAX_EMPLOYEE_BATCH_BYTES) {
+            throw new Error(
+              `Employee record ${start + batch.length + 1} is too large to upload.`,
+            );
+          }
+          if (
+            batch.length > 0 &&
+            batchBytes + employeeBytes > MAX_EMPLOYEE_BATCH_BYTES
+          ) {
+            break;
+          }
+          batch.push(employee);
+          batchBytes += employeeBytes;
+        }
+
+        const result = await apiRequest("/api/employees/batch", {
+          method: "POST",
+          body: { companyId: selectedCompanyId, employees: batch },
+        });
+        if (
+          !Array.isArray(result?.data) ||
+          result.data.length !== batch.length ||
+          result.data.some((employee) => typeof employee?.id !== "string")
+        ) {
+          throw new Error(
+            `Import stopped after ${importedCount} employees. The server did not confirm this batch; check the employee list before retrying.`,
+          );
+        }
+
+        importedCount += batch.length;
+        start += batch.length;
+        const progressText = `Added ${importedCount} of ${readyEmployees.length} employees${incompleteRows ? `; skipped ${incompleteRows} incomplete rows` : ""}.`;
+        setStatus(progressText);
+        toast.update(uploadToastId, { description: progressText });
+      }
+
+      setStatus(
+        `${importedCount} employees added${incompleteRows ? `; ${incompleteRows} incomplete rows skipped` : ""}`,
+      );
+      toast.update(uploadToastId, {
+        type: incompleteRows ? "warning" : "success",
+        title: incompleteRows ? "Employee import completed with skipped rows" : "Employee import completed",
+        description: `${importedCount} employees added${incompleteRows ? `; ${incompleteRows} incomplete rows skipped` : ""}.`,
+      });
+    } catch (importError) {
+      const message =
+        importError instanceof Error
+          ? importError.message
+          : "Could not import employee records.";
+      const progressMessage = importedCount
+        ? `${importedCount} employees were added before the import stopped. ${message}`
+        : message;
+      setServerError(progressMessage);
+      setStatus("Employee import incomplete");
+      toast.update(uploadToastId, {
+        type: "error",
+        title: "Employee import incomplete",
+        description: progressMessage,
+      });
+    } finally {
+      backendSaveRef.current = false;
+      setIsSavingToBackend(false);
+      if (payrollImportInputRef.current) payrollImportInputRef.current.value = "";
     }
   };
 
@@ -380,9 +601,21 @@ export default function CreateEmployees() {
         const workbookSnapshot = savedSnapshot
           ? JSON.parse(savedSnapshot)
           : { name: WORKBOOK_NAME };
+        const [
+          { LocaleType, createUniver },
+          { UniverSheetsCorePreset },
+          sheetsCoreLocaleModule,
+        ] = await Promise.all([
+          import("@univerjs/presets"),
+          import("@univerjs/preset-sheets-core"),
+          import("@univerjs/preset-sheets-core/locales/en-US"),
+          import("@univerjs/design/lib/index.css"),
+          import("@univerjs/preset-sheets-core/lib/index.css"),
+        ]);
+        if (!active) return;
         const created = createUniver({
           locale: LocaleType.EN_US,
-          locales: { [LocaleType.EN_US]: SheetsCoreEnUS },
+          locales: { [LocaleType.EN_US]: sheetsCoreLocaleModule.default },
           presets: [
             UniverSheetsCorePreset({
               container: containerRef.current,
@@ -400,35 +633,25 @@ export default function CreateEmployees() {
         univerApiRef.current = created.univerAPI;
         const sheet = workbook.getActiveSheet();
         const headers = sheet.getRange("A1:T1").getValues()[0] ?? [];
-        const hasBackendId = headers.some(
-          (header) => FIELD_HEADERS.backendId.includes(normalizeHeader(header)),
+        const employeeIdColumn = headers.findIndex((header) =>
+          FIELD_HEADERS.backendId.includes(normalizeHeader(header)),
         );
-        const hasEmployeeNameHeader = headers.some((header) =>
-          [
-            ...FIELD_HEADERS.fullName,
-            ...FIELD_HEADERS.firstName,
-            ...FIELD_HEADERS.lastName,
-          ].includes(normalizeHeader(header)),
-        );
-        const hasEmployeeDetailHeader = headers.some((header) =>
-          [
-            ...FIELD_HEADERS.email,
-            ...FIELD_HEADERS.dateHired,
-            ...FIELD_HEADERS.baseSalary,
-            ...FIELD_HEADERS.socialSecurityNumber,
-          ].includes(normalizeHeader(header)),
-        );
-        const hasEmployeeLayout = hasEmployeeNameHeader && hasEmployeeDetailHeader;
-        let loadedSuppliedRoster = false;
-        if (!savedSnapshot || !hasBackendId || !hasEmployeeLayout) {
-          const response = await fetch("./mock_employees_50.csv");
-          if (!response.ok) {
-            throw new Error("Could not load the supplied employee CSV.");
-          }
-          const employeeCsv = parseCsv(await response.text());
-          if (!active) return;
-          replaceSheetWithRows(sheet, employeeCsv);
-          loadedSuppliedRoster = true;
+        if (employeeIdColumn >= 0) {
+          sheet.hideColumns(employeeIdColumn, 1);
+        }
+        if (
+          employeeIdColumn >= 0 &&
+          normalizeHeader(headers[employeeIdColumn]) !== "employeeid"
+        ) {
+          sheet
+            .getRange(`${columnName(employeeIdColumn)}1`)
+            .setValue("Employee ID");
+        }
+        if (!savedSnapshot) {
+          initializeEmployeeSheet(sheet);
+        } else if (isDefaultEmployeeRoster(sheet.getDataRange().getValues())) {
+          sheet.getRange("A1:T1000").clearContent();
+          initializeEmployeeSheet(sheet);
         }
 
         const saveWorkbook = () => {
@@ -461,9 +684,6 @@ export default function CreateEmployees() {
           },
         );
         saveWorkbook();
-        if (loadedSuppliedRoster) {
-          setStatus("Loaded 50 employee rows from the supplied CSV");
-        }
       } catch (initializationError) {
         if (active) {
           setError(
@@ -493,6 +713,11 @@ export default function CreateEmployees() {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(workbook.save()));
       setStatus("Draft auto-saved");
       setError("");
+      toast.add({
+        type: "success",
+        title: "Spreadsheet saved",
+        description: "Your changes are saved on this computer.",
+      });
     } catch (saveError) {
       setError(
         saveError instanceof Error
@@ -500,23 +725,32 @@ export default function CreateEmployees() {
           : "Could not save spreadsheet changes.",
       );
     }
-    setOpenMenu(null);
   };
 
-  const resetWorkbook = () => {
-    if (
-      !window.confirm(
-        "Replace this in-app draft with the sample records? This does not delete employees already sent to the backend.",
-      )
-    ) {
-      setOpenMenu(null);
-      return;
-    }
+  const createNewEmployeeRecord = () => {
     const workbook = workbookRef.current;
-    if (!workbook) return;
-    workbook.getActiveSheet().getRange("A1:T1000").clearContent();
-    initializeWorkbook(workbook);
-    saveWorkbook();
+    if (!workbook) {
+      throw new Error("The spreadsheet is not ready yet.");
+    }
+    const sheet = workbook.getActiveSheet();
+    const activeSheetId = sheet.getSheetId();
+    workbook
+      .getSheets()
+      .filter((workbookSheet) => workbookSheet.getSheetId() !== activeSheetId)
+      .forEach((workbookSheet) => workbook.deleteSheet(workbookSheet));
+    sheet.getRange("A1:T1000").clearContent();
+    initializeEmployeeSheet(sheet);
+    workbook.setActiveSheet(sheet);
+    sheet.setActiveRange(sheet.getRange("A2"));
+    sheet.scrollToCell(1, 0, 250);
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(workbook.save()));
+    setStatus("New blank employee sheet ready");
+    toast.add({
+      type: "success",
+      title: "New blank employee record ready",
+      description:
+        "The previous spreadsheet draft was cleared. Employees already added to payroll are not deleted.",
+    });
   };
 
   const saveEmployeesToBackend = async () => {
@@ -534,7 +768,7 @@ export default function CreateEmployees() {
     );
     if (backendIdColumn < 0) {
       throw new Error(
-        "The CSV needs a blank column for tracking backend IDs. Import it again with fewer columns.",
+        "The spreadsheet needs a blank Employee ID column to track which employees have been added. Import it again with fewer columns.",
       );
     }
     const employeeRecords = rows.slice(1).map((cells, index) => ({
@@ -614,7 +848,6 @@ export default function CreateEmployees() {
       readyRows.push({
         sheetRow,
         body: {
-          companyId: selectedCompanyId,
           firstname: firstName,
           middlename:
             optionalText("middleName") ||
@@ -647,11 +880,21 @@ export default function CreateEmployees() {
 
     if (readyRows.length === 0) {
       if (unsavedRows.length === 0) {
-        setStatus("No unsaved employee rows");
+        setStatus("No new employees to add");
+        toast.add({
+          type: "info",
+          title: "No new employees to add",
+          description: "All employees in this spreadsheet have already been added.",
+        });
       } else {
         setStatus(
-          `No rows sent. Complete required fields in ${incompleteRows} unsaved rows.`,
+          `No employees were added. Complete the required details in ${incompleteRows} rows and try again.`,
         );
+        toast.add({
+          type: "warning",
+          title: "No employees were added",
+          description: `Complete the required fields in ${incompleteRows} row${incompleteRows === 1 ? "" : "s"} and try again.`,
+        });
       }
       return;
     }
@@ -659,56 +902,98 @@ export default function CreateEmployees() {
     setIsSavingToBackend(true);
     backendSaveRef.current = true;
     setServerError("");
-    setStatus(`Sending ${readyRows.length} employee record${readyRows.length === 1 ? "" : "s"}…`);
+    setStatus(`Adding ${readyRows.length} employee${readyRows.length === 1 ? "" : "s"} to payroll…`);
     let savedCount = 0;
+    const uploadToastId = toast.add({
+      type: "loading",
+      title: "Adding employees to payroll",
+      description: `Adding ${readyRows.length} employee${readyRows.length === 1 ? "" : "s"} to payroll…`,
+      timeout: 0,
+    });
     try {
-      for (const { body, sheetRow } of readyRows) {
-        const result = await apiRequest("/api/employees", {
+      for (
+        let start = 0;
+        start < readyRows.length;
+        start += EMPLOYEE_BATCH_SIZE
+      ) {
+        const batch = readyRows.slice(start, start + EMPLOYEE_BATCH_SIZE);
+        const batchEnd = start + batch.length;
+        const progressText = `Adding ${batchEnd} of ${readyRows.length} employees to payroll…`;
+        setStatus(progressText);
+        toast.update(uploadToastId, { description: progressText });
+
+        const result = await apiRequest("/api/employees/batch", {
           method: "POST",
-          body,
+          body: {
+            companyId: selectedCompanyId,
+            employees: batch.map(({ body }) => body),
+          },
         });
-        if (!result?.data?.id) {
+        if (
+          !Array.isArray(result?.data) ||
+          result.data.length !== batch.length ||
+          result.data.some((employee) => typeof employee?.id !== "string")
+        ) {
           throw new Error(
-            `The server did not return an employee ID for spreadsheet row ${sheetRow}.`,
+            `The server did not confirm every employee in rows ${start + 1}-${batchEnd}. Check your employee list before retrying.`,
           );
         }
-        sheet
-          .getRange(`${columnName(backendIdColumn)}${sheetRow}`)
-          .setValue(String(result.data.id));
-        savedCount += 1;
+
+        result.data.forEach((employee, index) => {
+          sheet
+            .getRange(
+              `${columnName(backendIdColumn)}${batch[index].sheetRow}`,
+            )
+            .setValue(employee.id);
+        });
+        savedCount += result.data.length;
+        window.localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify(workbook.save()),
+        );
       }
+
       setStatus(
-        `Saved ${savedCount} employee${savedCount === 1 ? "" : "s"} to the backend${
+        `${savedCount} employee${savedCount === 1 ? "" : "s"} added${
           incompleteRows
             ? `; ${incompleteRows} incomplete row${incompleteRows === 1 ? "" : "s"} skipped`
             : ""
         }`,
       );
+      toast.update(uploadToastId, {
+        type: incompleteRows ? "warning" : "success",
+        title: incompleteRows ? "Employees added with incomplete rows skipped" : "Employees added to payroll",
+        description: `${savedCount} employee${savedCount === 1 ? "" : "s"} added${incompleteRows ? `; ${incompleteRows} row${incompleteRows === 1 ? "" : "s"} skipped because required details are missing` : ""}.`,
+      });
     } catch (saveError) {
-      setStatus("Backend save incomplete");
+      setStatus("Employee addition incomplete");
+      const errorMessage =
+        saveError instanceof Error
+          ? saveError.message
+          : "Could not add employees.";
       setServerError(
-        `Saved ${savedCount} employee${savedCount === 1 ? "" : "s"} before the server error: ${
-          saveError instanceof Error
-            ? saveError.message
-            : "Could not save employee records."
-        }`,
+        `${savedCount} employee${savedCount === 1 ? "" : "s"} added before the problem: ${errorMessage}`,
       );
+      toast.update(uploadToastId, {
+        type: "error",
+        title: savedCount ? "Some employees could not be added" : "Could not add employees to payroll",
+        description: `${savedCount} employee${savedCount === 1 ? "" : "s"} added. ${errorMessage}`,
+      });
     } finally {
       backendSaveRef.current = false;
       setIsSavingToBackend(false);
     }
   };
 
-  const runMenuAction = async (actionId) => {
-    setOpenMenu(null);
+  const runEmployeeAction = async (actionId) => {
     setServerError("");
     try {
-      if (actionId === "upload-spreadsheet") {
+      if (actionId === "new-record") {
+        createNewEmployeeRecord();
+      } else if (actionId === "import") {
         csvInputRef.current?.click();
-      } else if (actionId === "send") {
+      } else if (actionId === "add") {
         await saveEmployeesToBackend();
-      } else if (actionId === "reset") {
-        resetWorkbook();
       } else if (actionId === "undo" || actionId === "redo") {
         const api = univerApiRef.current;
         if (!api) throw new Error("The spreadsheet is not ready yet.");
@@ -727,6 +1012,33 @@ export default function CreateEmployees() {
             keyCode: api.Enum.KeyCode.X,
           }),
         );
+      } else if (actionId === "export") {
+        const workbook = workbookRef.current;
+        if (!workbook) throw new Error("The spreadsheet is not ready yet.");
+        const XLSX = await import("xlsx");
+        const data = workbook.getActiveSheet().getDataRange().getValues();
+        const exportWorkbook = XLSX.utils.book_new();
+        const worksheet = XLSX.utils.aoa_to_sheet(data);
+        XLSX.utils.book_append_sheet(exportWorkbook, worksheet, "Employees");
+        XLSX.writeFile(exportWorkbook, "employees.xlsx");
+      } else if (actionId === "gridlines") {
+        const workbook = workbookRef.current;
+        const sheet = workbook?.getActiveSheet();
+        const api = univerApiRef.current;
+        if (!workbook || !sheet || !api) {
+          throw new Error("The spreadsheet is not ready yet.");
+        }
+        await api.executeCommand("sheet.command.toggle-gridlines", {
+          unitId: workbook.getId(),
+          subUnitId: sheet.getSheetId(),
+        });
+      } else if (actionId === "help") {
+        toast.add({
+          type: "info",
+          title: "Preparing the employee spreadsheet",
+          description:
+            "Complete each employee’s required payroll details, then choose Add employees to payroll. Changes to this spreadsheet are saved on this computer.",
+        });
       }
     } catch (actionError) {
       setServerError(
@@ -738,72 +1050,51 @@ export default function CreateEmployees() {
   };
 
   return (
-    <div className="flex h-full min-h-0 bg-muted/30">
-      <aside className="hidden w-60 shrink-0 flex-col border-r bg-background p-4 md:flex">
-        <div className="mb-8 flex items-center gap-3 px-2 py-1">
+    <SidebarProvider className="h-full min-h-0 bg-background">
+      <Sidebar collapsible="icon" variant="inset">
+        <SidebarHeader className="border-b border-sidebar-border px-4 py-4">
+          <div className="flex items-center gap-3">
           <div className="flex size-9 items-center justify-center rounded-lg border">
             <LayoutDashboard className="size-4" aria-hidden="true" />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 group-data-[collapsible=icon]:hidden">
             <p className="truncate text-sm font-semibold">Payroll</p>
             <p className="truncate text-xs text-muted-foreground">
               Admin workspace
             </p>
           </div>
-        </div>
+          </div>
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarGroup>
+          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navigationItems.map(({ label, href, Icon }) => (
+                <SidebarMenuItem key={href}>
+                  <SidebarMenuButton
+                    render={<Link to={href} />}
+                    isActive={href === "/createEmployees"}
+                    tooltip={label}
+                  >
+                    <Icon aria-hidden="true" />
+                    <span>{label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+      </Sidebar>
 
-        <nav aria-label="Primary navigation" className="flex flex-col gap-1">
-          <p className="mb-2 px-3 text-xs font-medium text-muted-foreground">
-            Workspace
-          </p>
-          {navigationItems.map(({ label, href, Icon }) => {
-            const active = href === "/createEmployees";
-            return (
-              <Link
-                key={href}
-                to={href}
-                aria-current={active ? "page" : undefined}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                  active
-                    ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
-              >
-                <Icon className="size-4" aria-hidden="true" />
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
-      </aside>
-
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden p-2 md:p-3">
-        <nav
-          aria-label="Primary navigation"
-          className="flex shrink-0 gap-2 overflow-x-auto md:hidden"
-        >
-          {navigationItems.map(({ label, href, Icon }) => {
-            const active = href === "/createEmployees";
-            return (
-              <Link
-                key={href}
-                to={href}
-                aria-current={active ? "page" : undefined}
-                className={`inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm ${
-                  active
-                    ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                    : "bg-background text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                <Icon className="size-4" aria-hidden="true" />
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
-
+      <SidebarInset className="h-full min-h-0 bg-muted/30">
+        <main className="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden p-2 md:p-3">
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+          <SidebarTrigger aria-label="Toggle sidebar" />
           <h1 className="text-lg font-semibold tracking-tight">Employees</h1>
+          </div>
           <label className="flex items-center gap-2 text-sm font-medium">
             Company
             <select
@@ -850,7 +1141,7 @@ export default function CreateEmployees() {
             <Link to="/dashboard" className="font-medium underline">
               Set up a company
             </Link>{" "}
-            before saving employees.
+            before adding employees to payroll.
           </p>
         )}
 
@@ -864,52 +1155,114 @@ export default function CreateEmployees() {
             uploadSpreadsheetFile(event.target.files?.[0])
           }
         />
+        <input
+          ref={payrollImportInputRef}
+          type="file"
+          accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+          className="hidden"
+          aria-label="Select an employee roster to import directly to payroll"
+          onChange={(event) =>
+            importEmployeeFileToPayroll(event.target.files?.[0])
+          }
+        />
 
-        <div className="flex shrink-0 items-center gap-1 border-b pb-1">
-          {Object.entries(menuItems).map(([label, actions]) => (
-            <div className="relative" key={label}>
-              <button
-                type="button"
-                aria-haspopup="menu"
-                aria-expanded={openMenu === label}
-                onClick={() =>
-                  setOpenMenu((current) => (current === label ? null : label))
-                }
-                className={`rounded-md px-3 py-1.5 text-sm ${
-                  openMenu === label
-                    ? "bg-background font-medium shadow-sm"
-                    : "text-muted-foreground hover:bg-background hover:text-foreground"
-                }`}
-              >
-                {label}
-              </button>
-              {openMenu === label && (
-                <div
-                  role="menu"
-                  aria-label={`${label} menu`}
-                  className="absolute left-0 top-full z-50 mt-1 min-w-48 rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg"
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b pb-1">
+          <Menubar className="h-9 rounded-md border-0 p-0">
+            <MenubarMenu>
+              <MenubarTrigger>File</MenubarTrigger>
+              <MenubarContent style={{ width: "17rem" }}>
+                <MenubarItem
+                  className="whitespace-nowrap"
+                  onClick={() => runEmployeeAction("new-record")}
                 >
-                  {actions.map(({ id, label: actionLabel, Icon }) => (
-                    <button
-                      key={id}
-                      type="button"
-                      role="menuitem"
-                      onClick={() => runMenuAction(id)}
-                      disabled={id === "send" && isSavingToBackend}
-                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-muted disabled:opacity-50"
-                    >
-                      {Icon && (
-                        <Icon className="size-4" aria-hidden="true" />
-                      )}
-                      {id === "send" && isSavingToBackend
-                        ? "Saving employees…"
-                        : actionLabel}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+                  <FilePlus2 aria-hidden="true" />
+                  New Record
+                </MenubarItem>
+                <MenubarSeparator />
+                <MenubarItem
+                  className="whitespace-nowrap"
+                  onClick={() => runEmployeeAction("import")}
+                >
+                  <FileUp aria-hidden="true" />
+                  Upload Record…
+                </MenubarItem>
+                <MenubarItem
+                  className="whitespace-nowrap"
+                  disabled={isSavingToBackend || !selectedCompanyId}
+                  onClick={() => payrollImportInputRef.current?.click()}
+                >
+                  <CloudUpload aria-hidden="true" />
+                  Import roster to payroll…
+                </MenubarItem>
+                <MenubarItem
+                  className="whitespace-nowrap"
+                  onClick={saveWorkbook}
+                >
+                  <Save aria-hidden="true" />
+                  Save
+                </MenubarItem>
+                <MenubarSeparator />
+                <MenubarItem
+                  className="whitespace-nowrap"
+                  onClick={() => runEmployeeAction("export")}
+                >
+                  <Download aria-hidden="true" />
+                  Download a copy as Excel…
+                </MenubarItem>
+              </MenubarContent>
+            </MenubarMenu>
+            <MenubarMenu>
+              <MenubarTrigger>Edit</MenubarTrigger>
+              <MenubarContent>
+                <MenubarItem onClick={() => runEmployeeAction("undo")}>
+                  <Undo2 aria-hidden="true" />
+                  Undo
+                </MenubarItem>
+                <MenubarItem onClick={() => runEmployeeAction("redo")}>
+                  <Redo2 aria-hidden="true" />
+                  Redo
+                </MenubarItem>
+                <MenubarSeparator />
+                <MenubarItem onClick={() => runEmployeeAction("cut")}>
+                  Cut
+                </MenubarItem>
+                <MenubarItem onClick={() => runEmployeeAction("copy")}>
+                  Copy
+                </MenubarItem>
+                <MenubarItem onClick={() => runEmployeeAction("paste")}>
+                  Paste
+                </MenubarItem>
+              </MenubarContent>
+            </MenubarMenu>
+            <MenubarMenu>
+              <MenubarTrigger>View</MenubarTrigger>
+              <MenubarContent>
+                <MenubarItem onClick={() => runEmployeeAction("gridlines")}>
+                  Toggle gridlines
+                </MenubarItem>
+              </MenubarContent>
+            </MenubarMenu>
+            <MenubarMenu>
+              <MenubarTrigger>Help</MenubarTrigger>
+              <MenubarContent>
+                <MenubarItem onClick={() => runEmployeeAction("help")}>
+                  Employee spreadsheet guide
+                </MenubarItem>
+              </MenubarContent>
+            </MenubarMenu>
+          </Menubar>
+          <Button
+            onClick={() => runEmployeeAction("add")}
+            disabled={isSavingToBackend || !selectedCompanyId}
+            className="h-9"
+          >
+            {isSavingToBackend ? (
+              <LoaderCircle className="animate-spin" aria-hidden="true" />
+            ) : (
+              <CloudUpload aria-hidden="true" />
+            )}
+            {isSavingToBackend ? "Adding employees…" : "Add employees to payroll"}
+          </Button>
         </div>
 
         {error ? (
@@ -929,6 +1282,7 @@ export default function CreateEmployees() {
           </section>
         )}
       </main>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

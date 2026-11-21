@@ -67,6 +67,13 @@ sign-out before closing. Settings are persisted in Electron user data.
 **Always ask for password in other applications** and **Automatic sync** are
 shown as disabled placeholders.
 
+## Dashboard
+
+The dashboard shows live company, active employee, and attendance counts for
+the selected company. Cash, receivables, payables, and net income remain clearly
+marked as unavailable until ledger, invoice, and expense data are connected;
+the dashboard does not display placeholder financial amounts.
+
 ## Employee spreadsheet
 
 Signed-in admins can open **Employees** from the dashboard or go directly to
@@ -86,7 +93,8 @@ expand row height for readability. Quoted commas, escaped quotes, and quoted
 newlines are supported in CSVs. Files must have unique column headers, up to 19
 columns, and up to 1,000 rows; a `Backend ID` tracking column is added when
 missing. Uploads remain an in-app draft until **Save employees to backend** is
-used.
+used. Univer is loaded when the spreadsheet page initializes, and Excel parsing
+is loaded only when an Excel file is uploaded.
 The supplied 50-employee CSV is also loaded automatically when there is no
 saved employee sheet or the saved workbook contains unrelated data.
 
