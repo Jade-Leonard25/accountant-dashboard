@@ -31,6 +31,16 @@ export default defineConfig({
       },
       preload: {
         input: "electron/preload.js",
+        vite: {
+          build: {
+            rolldownOptions: {
+              output: {
+                entryFileNames: "[name].cjs",
+                chunkFileNames: "[name].cjs",
+              },
+            },
+          },
+        },
       },
     }),
   ],
@@ -38,7 +48,7 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: {
-      "/api/auth": {
+      "/api": {
         target: "https://system-payroll-api.automation-payroll.workers.dev",
         changeOrigin: true,
         secure: true,

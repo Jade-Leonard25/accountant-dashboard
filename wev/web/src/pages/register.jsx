@@ -2,10 +2,16 @@ import { useState } from "react";
 import axios from "axios";
 import { Link, useLocation, useNavigate } from "react-router";
 import { z } from "zod";
+import {
+  getStayLoggedIn,
+  markAdminRegistered,
+  signIn,
+} from "../auth-client";
 import { Button } from "../components/ui/button";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
@@ -56,6 +62,7 @@ export default function Register() {
     }
 
     setIsSubmitting(true);
+    let accountCreated = false;
     try {
       await axios.post(registerAdminURL, {
         key: activationKey,
@@ -63,8 +70,42 @@ export default function Register() {
         email: result.data.email,
         password: result.data.password,
       });
+      accountCreated = true;
+      await markAdminRegistered();
+
+      const rememberMe = await getStayLoggedIn();
+      const signInResult = await signIn.email({
+        email: result.data.email,
+        password: result.data.password,
+        rememberMe,
+      });
+
+      if (signInResult.error) {
+        navigate("/login", {
+          replace: true,
+          state: {
+            registrationCompleted: true,
+            message:
+              "Your account was created, but automatic login didn't work. Log in with your new account to continue.",
+          },
+        });
+        return;
+      }
+
       navigate("/dashboard", { replace: true });
     } catch (requestError) {
+      if (accountCreated) {
+        navigate("/login", {
+          replace: true,
+          state: {
+            registrationCompleted: true,
+            message:
+              "Your account was created, but automatic login didn't work. Log in with your new account to continue.",
+          },
+        });
+        return;
+      }
+
       const status = requestError.response?.status;
       const serverMessage =
         requestError.response?.data?.message ||
@@ -116,10 +157,15 @@ export default function Register() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-2">
+    <main className="flex min-h-screen items-center justify-center px-4 py-2 bg-gray-200">
+      <div>
+        <p className="h2 font-bold text-2xl pt-4 pb-4 text-center">Congratulation's for activating your account.</p>
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Create your account</CardTitle>
+          <CardDescription>
+            Create your admin user to use this application all products is all your's.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -186,6 +232,7 @@ export default function Register() {
           </form>
         </CardContent>
       </Card>
+      </div>
     </main>
   );
 }
