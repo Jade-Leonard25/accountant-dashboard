@@ -1,6 +1,7 @@
 import { createElement, useEffect, useState } from "react";
 import {
   createBrowserRouter,
+  createHashRouter,
   Navigate,
   Outlet,
   useLocation,
@@ -157,7 +158,7 @@ const RootLayout = () => {
   );
 };
 
-const router = createBrowserRouter([
+const routes = [
   {
     path: "/",
     Component: RootLayout,
@@ -175,6 +176,11 @@ const router = createBrowserRouter([
       },
     ],
   },
-]);
+];
+
+const router =
+  typeof window !== "undefined" && window.location.protocol === "file:"
+    ? createHashRouter(routes)
+    : createBrowserRouter(routes);
 
 export default router;

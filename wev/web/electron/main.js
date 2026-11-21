@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, session } from 'electron'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -7,6 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const PORT = 5173
 const DEV_URL = `http://localhost:${PORT}`
+const API_ORIGIN = 'https://system-payroll-api.automation-payroll.workers.dev'
 const ADMIN_REGISTRATION_FILE = 'admin-registration-state'
 const SETTINGS_FILE = 'app-settings.json'
 
@@ -146,7 +147,20 @@ ipcMain.handle('auth:mark-admin-registered', async () => {
   )
 })
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  const authSession = session.fromPartition('persist:default')
+  authSession.webRequest.onBeforeSendHeaders(
+    { urls: [`${API_ORIGIN}/*`] },
+    (details, callback) => {
+      const headers = { ...details.requestHeaders }
+      headers.Origin = API_ORIGIN
+      headers.Referer = `${API_ORIGIN}/`
+      callback({ requestHeaders: headers })
+    },
+  )
+
+  createWindow()
+})
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()

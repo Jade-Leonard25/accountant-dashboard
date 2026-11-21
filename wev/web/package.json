@@ -4,11 +4,27 @@
   "version": "0.0.0",
   "type": "module",
   "main": "dist-electron/main.js",
+  "author": "Jade-Leonard25",
+  "build": {
+    "appId": "com.jade-leonard25.automation-payroll",
+    "productName": "automation-payroll",
+    "asar": true,
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "linux": {
+      "target": ["AppImage"]
+    }
+  },
   "scripts": {
     "dev": "XDG_SESSION_TYPE=x11 ELECTRON_OZONE_PLATFORM_HINT=x11 vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:appimage": "bun run build && electron-builder --linux AppImage",
+    "build:electron": "bun run build:appimage"
   },
   "dependencies": {
     "@animate-ui/react": "^2.4.6",
@@ -26,7 +42,6 @@
     "cn": "^0.5.2",
     "date-fns": "^4.4.0",
     "dotenv": "^18.0.10",
-    "electron-builder": "^26.18.0",
     "embla-carousel-react": "^8.6.0",
     "input-otp": "^1.5.0",
     "lucide-react": "^1.77.0",
@@ -56,6 +71,7 @@
     "babel-plugin-react-compiler": "^1.0.0",
     "concurrently": "^10.0.7",
     "electron": "^45.4.1",
+    "electron-builder": "^26.18.0",
     "eslint": "^10.14.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",

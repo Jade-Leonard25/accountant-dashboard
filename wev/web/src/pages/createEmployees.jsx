@@ -421,7 +421,7 @@ export default function CreateEmployees() {
         const hasEmployeeLayout = hasEmployeeNameHeader && hasEmployeeDetailHeader;
         let loadedSuppliedRoster = false;
         if (!savedSnapshot || !hasBackendId || !hasEmployeeLayout) {
-          const response = await fetch("/mock_employees_50.csv");
+          const response = await fetch("./mock_employees_50.csv");
           if (!response.ok) {
             throw new Error("Could not load the supplied employee CSV.");
           }
@@ -777,7 +777,7 @@ export default function CreateEmployees() {
         </nav>
       </aside>
 
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-hidden p-4 md:p-6">
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden p-2 md:p-3">
         <nav
           aria-label="Primary navigation"
           className="flex shrink-0 gap-2 overflow-x-auto md:hidden"
@@ -802,28 +802,10 @@ export default function CreateEmployees() {
           })}
         </nav>
 
-        <header className="flex shrink-0 flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-xl border bg-background">
-              <Users className="size-5" aria-hidden="true" />
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold tracking-tight">
-                Create employees
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Edit the sample employee spreadsheet to build your roster.
-              </p>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground" role="status">
-            {status}
-          </p>
-        </header>
-
-        <section className="flex shrink-0 flex-wrap items-end justify-between gap-3 rounded-lg border bg-background p-3">
-          <label className="grid min-w-56 gap-1 text-sm font-medium">
-            Company for backend records
+        <header className="flex shrink-0 flex-wrap items-center justify-between gap-2">
+          <h1 className="text-lg font-semibold tracking-tight">Employees</h1>
+          <label className="flex items-center gap-2 text-sm font-medium">
+            Company
             <select
               value={selectedCompanyId}
               onChange={(event) => {
@@ -836,7 +818,7 @@ export default function CreateEmployees() {
                 }
               }}
               disabled={!companies.length}
-              className="h-9 rounded-md border bg-background px-3 font-normal"
+              className="h-8 min-w-48 rounded-md border bg-background px-3 font-normal"
             >
               {companies.length ? (
                 companies.map((company) => (
@@ -851,14 +833,10 @@ export default function CreateEmployees() {
               )}
             </select>
           </label>
-          <p className="max-w-2xl text-xs text-muted-foreground">
-            Employee rows are kept as an in-app draft automatically. Use File
-            → Save employees to backend to create new records. Complete first
-            and last name, hire date, SSS, Pag-IBIG, PhilHealth, Tax ID, and
-            base/daily/hourly rates; incomplete rows are skipped. This endpoint
-            creates records and does not update records already sent.
+          <p className="text-xs text-muted-foreground" role="status">
+            {status}
           </p>
-        </section>
+        </header>
 
         {(companyError || serverError) && (
           <p role="alert" className="shrink-0 text-sm text-destructive">
@@ -870,9 +848,9 @@ export default function CreateEmployees() {
           <p className="shrink-0 text-sm text-muted-foreground">
             No company is set up yet.{" "}
             <Link to="/dashboard" className="font-medium underline">
-              Create a company on the dashboard
+              Set up a company
             </Link>{" "}
-            before sending employees to the backend.
+            before saving employees.
           </p>
         )}
 
@@ -887,7 +865,7 @@ export default function CreateEmployees() {
           }
         />
 
-        <div className="flex shrink-0 items-center gap-1 border-b pb-2">
+        <div className="flex shrink-0 items-center gap-1 border-b pb-1">
           {Object.entries(menuItems).map(([label, actions]) => (
             <div className="relative" key={label}>
               <button

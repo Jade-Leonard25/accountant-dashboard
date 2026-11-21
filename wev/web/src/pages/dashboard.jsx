@@ -62,6 +62,39 @@ const getInitials = (name = "") =>
     .map((part) => part.charAt(0).toUpperCase())
     .join("") || "U";
 
+const getLocalClock = () => {
+  const now = new Date();
+  return {
+    logDate: [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, "0"),
+      String(now.getDate()).padStart(2, "0"),
+    ].join("-"),
+    minutes: now.getHours() * 60 + now.getMinutes(),
+  };
+};
+
+const formatClockTime = (minutes) =>
+  `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(
+    minutes % 60,
+  ).padStart(2, "0")}`;
+
+const getAttendanceLog = (entry) =>
+  entry.attendance_logs ?? entry.attendanceLogs ?? entry;
+
+const fetchCompanyAttendance = async (companyId) => {
+  if (!companyId) return { employees: [], logs: [] };
+
+  const [employeeResult, attendanceResult] = await Promise.all([
+    apiRequest(`/api/employees/company/${encodeURIComponent(companyId)}`),
+    apiRequest(`/api/attendance/company/${encodeURIComponent(companyId)}`),
+  ]);
+  return {
+    employees: Array.isArray(employeeResult?.data) ? employeeResult.data : [],
+    logs: Array.isArray(attendanceResult?.data) ? attendanceResult.data : [],
+  };
+};
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -75,10 +108,92 @@ export default function Dashboard() {
   const [companyTaxId, setCompanyTaxId] = useState("");
   const [companyError, setCompanyError] = useState("");
   const [isCreatingCompany, setIsCreatingCompany] = useState(false);
+  const [selectedCompanyId, setSelectedCompanyId] = useState(
+    () => window.localStorage.getItem(SELECTED_COMPANY_KEY) || "",
+  );
+  const [rosterEmployees, setRosterEmployees] = useState([]);
+  const [attendanceLogs, setAttendanceLogs] = useState([]);
+  const [loadedAttendanceCompanyId, setLoadedAttendanceCompanyId] = useState("");
+  const [attendanceError, setAttendanceError] = useState("");
+  const [attendanceStatus, setAttendanceStatus] = useState("");
+  const [busyAttendanceEmployeeId, setBusyAttendanceEmployeeId] = useState("");
   const user = session?.user;
   const userName = user?.name || "Account";
   const userEmail = user?.email || "Email unavailable";
   const userRole = user?.role || "Role unavailable";
+
+  useEffect(() => {
+    let active = true;
+    if (!selectedCompanyId) {
+      return undefined;
+    }
+
+    fetchCompanyAttendance(selectedCompanyId)
+      .then(({ employees: loadedEmployees, logs: loadedLogs }) => {
+        if (!active) return;
+        setRosterEmployees(loadedEmployees);
+        setAttendanceLogs(loadedLogs);
+        setLoadedAttendanceCompanyId(selectedCompanyId);
+      })
+      .catch((loadError) => {
+        if (active) {
+          setAttendanceError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Could not load employee attendance.",
+          );
+          setLoadedAttendanceCompanyId(selectedCompanyId);
+        }
+      })
+
+    return () => {
+      active = false;
+    };
+  }, [selectedCompanyId]);
+
+  const handleAttendanceAction = async (employee, openLog) => {
+    setAttendanceError("");
+    setAttendanceStatus("");
+    setBusyAttendanceEmployeeId(employee.id);
+    const clock = getLocalClock();
+
+    try {
+      if (openLog) {
+        await apiRequest(
+          `/api/attendance/admin/clock-out/${encodeURIComponent(openLog.id)}`,
+          {
+            method: "PUT",
+            body: { timeOutMinutes: clock.minutes, breakMinutes: 60 },
+          },
+        );
+        setAttendanceStatus(`${employee.firstname} ${employee.lastname} clocked out.`);
+      } else {
+        await apiRequest("/api/attendance/admin/clock-in", {
+          method: "POST",
+          body: {
+            employeeId: employee.id,
+            companyId: selectedCompanyId,
+            logDate: clock.logDate,
+            timeInMinutes: clock.minutes,
+            shiftStartMinutes: 480,
+          },
+        });
+        setAttendanceStatus(`${employee.firstname} ${employee.lastname} clocked in.`);
+      }
+      const { employees: loadedEmployees, logs: loadedLogs } =
+        await fetchCompanyAttendance(selectedCompanyId);
+      setRosterEmployees(loadedEmployees);
+      setAttendanceLogs(loadedLogs);
+    } catch (actionError) {
+      setAttendanceError(
+        actionError instanceof Error
+          ? actionError.message
+          : "Could not update employee attendance.",
+      );
+    } finally {
+      setBusyAttendanceEmployeeId("");
+    }
+  };
 
   const handleCreateCompany = async (event) => {
     event.preventDefault();
@@ -95,6 +210,7 @@ export default function Dashboard() {
       }
 
       window.localStorage.setItem(SELECTED_COMPANY_KEY, result.data.id);
+      setSelectedCompanyId(result.data.id);
       setCompanyName("");
       setCompanyTaxId("");
       navigate("/createEmployees");
@@ -129,6 +245,41 @@ export default function Dashboard() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    const adminId = user?.id;
+    if (!adminId) return undefined;
+
+    let active = true;
+    apiRequest(`/api/companies/admin/${encodeURIComponent(adminId)}`)
+      .then((result) => {
+        if (!active) return;
+        const ownedCompanies = Array.isArray(result?.data) ? result.data : [];
+        const savedCompanyId = window.localStorage.getItem(SELECTED_COMPANY_KEY);
+        const initialCompanyId = ownedCompanies.some(
+          (company) => company.id === savedCompanyId,
+        )
+          ? savedCompanyId
+          : (ownedCompanies[0]?.id ?? "");
+        setSelectedCompanyId(initialCompanyId);
+        if (initialCompanyId) {
+          window.localStorage.setItem(SELECTED_COMPANY_KEY, initialCompanyId);
+        }
+      })
+      .catch((loadError) => {
+        if (active) {
+          setCompanyError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Could not load your companies.",
+          );
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
 
   const handleStayLoggedInChange = async (enabled) => {
     setIsSavingSettings(true);
@@ -371,6 +522,115 @@ export default function Dashboard() {
               <p role="alert" className="mt-3 text-sm text-destructive">
                 {companyError}
               </p>
+            )}
+          </section>
+
+          <section className="rounded-xl border bg-background p-5">
+            <div className="mb-4">
+              <h2 className="font-medium">Employee time clock</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Use each employee’s row to record local clock-in and clock-out.
+                A standard shift is 8 worked hours with a 60-minute break;
+                overtime is calculated after 8 worked hours.
+              </p>
+            </div>
+            {attendanceError && (
+              <p role="alert" className="mb-3 text-sm text-destructive">
+                {attendanceError}
+              </p>
+            )}
+            {attendanceStatus && (
+              <p role="status" className="mb-3 text-sm text-green-700">
+                {attendanceStatus}
+              </p>
+            )}
+            {!selectedCompanyId ? (
+              <p className="text-sm text-muted-foreground">
+                Create or select a company to view its employees.
+              </p>
+            ) : selectedCompanyId !== loadedAttendanceCompanyId ? (
+              <p className="text-sm text-muted-foreground">
+                Loading employees…
+              </p>
+            ) : rosterEmployees.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No employees found for this company yet.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px] text-left text-sm">
+                  <thead>
+                    <tr className="border-b text-muted-foreground">
+                      <th className="px-3 py-2 font-medium">Employee</th>
+                      <th className="px-3 py-2 font-medium">Attendance</th>
+                      <th className="px-3 py-2 font-medium">Time in</th>
+                      <th className="px-3 py-2 font-medium">Time out</th>
+                      <th className="px-3 py-2 font-medium">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rosterEmployees.map((employee) => {
+                      const employeeLogs = attendanceLogs
+                        .map(getAttendanceLog)
+                        .filter((log) => log.employeeId === employee.id)
+                        .sort((left, right) =>
+                          `${right.logDate}${String(right.createdAt ?? "")}`.localeCompare(
+                            `${left.logDate}${String(left.createdAt ?? "")}`,
+                          ),
+                        );
+                      const openLog = employeeLogs.find(
+                        (log) => log.timeOutMinutes === null,
+                      );
+                      const latestLog = openLog ?? employeeLogs[0];
+                      const isActive = employee.employmentStatus === "ACTIVE";
+                      const isBusy =
+                        busyAttendanceEmployeeId === employee.id;
+                      return (
+                        <tr key={employee.id} className="border-b last:border-0">
+                          <td className="px-3 py-3">
+                            <p className="font-medium">
+                              {employee.firstname} {employee.lastname}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {employee.position || employee.department || ""}
+                            </p>
+                          </td>
+                          <td className="px-3 py-3">
+                            {openLog ? "On shift" : latestLog ? "Clocked out" : "Not clocked in"}
+                          </td>
+                          <td className="px-3 py-3">
+                            {latestLog
+                              ? `${latestLog.logDate} ${formatClockTime(latestLog.timeInMinutes)}`
+                              : "—"}
+                          </td>
+                          <td className="px-3 py-3">
+                            {latestLog && latestLog.timeOutMinutes !== null
+                              ? formatClockTime(latestLog.timeOutMinutes)
+                              : "—"}
+                          </td>
+                          <td className="px-3 py-3">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={openLog ? "outline" : "default"}
+                              disabled={!isActive || isBusy}
+                              onClick={() =>
+                                handleAttendanceAction(employee, openLog)
+                              }
+                            >
+                              {isBusy
+                                ? "Saving…"
+                                : openLog
+                                  ? "Clock out"
+                                  : "Clock in"}
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </section>
 
